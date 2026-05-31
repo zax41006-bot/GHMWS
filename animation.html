@@ -1,0 +1,175 @@
+<!DOCTYPE html> 
+<html lang="zh-Hant"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
+    <title>粵港澳天氣站 | 風場動畫</title> 
+    <link rel="icon" href="GHMWS.png" type="image/png">
+    
+    <script src="https://cdn.tailwindcss.com"></script> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> 
+     
+    <script> 
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    colors: { 
+                        primary: '#0056b3', 
+                        secondary: '#e9f5ff', 
+                        nav: '#007bff',
+                        textDark: '#212529'
+                    }, 
+                } 
+            } 
+        } 
+    </script> 
+     
+    <style type="text/tailwindcss"> 
+        @layer utilities { 
+            .weather-card { @apply bg-white rounded-lg shadow-sm border border-gray-200; } 
+            .forecast-day { @apply w-28 py-3 border-r border-gray-100 last:border-0 flex flex-col items-center justify-center text-center; } 
+            .mmc-icon { @apply w-20 h-16 my-2 object-contain; }
+            .forecast-outlook { @apply p-4 bg-secondary border-b border-gray-200 rounded-t-lg; } 
+            .forecast-container { @apply flex min-w-max justify-center; } 
+            .seven-day-temp { @apply text-red-600; } 
+            .nav-link { @apply px-4 py-3 text-white hover:bg-primary/80 transition-colors duration-300; }
+            .mobile-menu { @apply absolute top-full left-0 right-0 bg-white shadow-lg py-2 z-50 border-t border-gray-200; } 
+            .mobile-menu-hidden { @apply hidden; } 
+            .weather-draft-btn { @apply bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 transition-all shadow-sm text-sm; } 
+            .update-badge { @apply bg-red-500 text-white text-xs px-2 py-1 rounded-full ml-2; }
+            .weather-section { @apply mb-6; }
+            .date-tag { @apply font-semibold text-lg mb-3 text-gray-800 bg-primary/10 px-3 py-2 rounded inline-block; }
+            .model-card { @apply bg-white rounded-lg shadow-md p-5 mb-6; }
+            .select-container { @apply relative w-64 mx-auto mb-4; }
+            .select-box { @apply border border-gray-300 rounded-md p-3 flex justify-between items-center cursor-pointer bg-white; }
+            .select-dropdown { @apply absolute w-full bg-white border border-gray-300 rounded-md mt-1 z-10; }
+            .select-option { @apply p-3 hover:bg-gray-100 cursor-pointer; }
+            .model-img { @apply w-full max-w-4xl mx-auto h-auto rounded-md shadow; }
+        } 
+        
+        body { 
+            background-color: #f8f9fa; 
+            font-family: "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; 
+            line-height: 1.6;
+        } 
+
+        header { position: relative; z-index: 999; } 
+        h1 { letter-spacing: 1px; }
+        .radar-iframe {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+        }
+
+        @media (max-width: 768px) {
+            .nav-link {
+                padding: 12px 16px;
+                display: block;
+            }
+            .nav-container ul {
+                flex-direction: column;
+            }
+            .model-img {
+                max-width: 100%;
+            }
+        }
+    </style> 
+</head> 
+
+<body class="font-sans text-textDark min-h-screen"> 
+    <header class="bg-white border-b border-gray-200 py-2 shadow-sm">
+        <div class="container mx-auto px-6 flex items-center justify-between">
+            <div class="flex items-center gap-4 md:gap-6">
+                <img src="GHMWS.png" alt="粵港澳天氣站" class="w-16 h-16 object-contain" loading="lazy">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold text-primary">粵港澳天氣站</h1>
+                    <p class="text-xs md:text-sm text-gray-500">Guangdong-Hong Kong-Macao Weather Station（GHMWS）</p>
+                </div>
+            </div>
+            <button id="mobileMenuBtn" class="md:hidden text-primary text-xl">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </header>
+
+    <nav class="bg-nav nav-container relative">
+        <div id="mobileMenu" class="mobile-menu mobile-menu-hidden md:hidden">
+            <ul class="flex flex-col">
+                <li><a href="index.html" class="nav-link text-textDark font-medium">首頁</a></li>
+                <li><a href="TC.html" class="nav-link text-textDark font-medium">熱帶氣旋資訊</a></li>
+                <li><a href="model.html" class="nav-link text-textDark font-medium">各大模式預報</a></li>
+                <li><a href="https://zax41006-bot.github.io/GHMWS/animation.html" class="nav-link text-textDark font-medium">風場動畫</a></li>
+            </ul>
+        </div>
+        <!-- 桌面端导航 -->
+        <div class="container mx-auto px-4 hidden md:block">
+            <ul class="flex flex-wrap">
+                <li><a href="index.html" class="nav-link inline-block font-medium">首頁</a></li>
+                <li><a href="TC.html" class="nav-link inline-block font-medium">熱帶氣旋資訊</a></li>
+                <li><a href="model.html" class="nav-link inline-block font-medium">各大模式預報</a></li>
+                <li><a href="https://zax41006-bot.github.io/GHMWS/animation.html" class="nav-link inline-block font-medium">風場動畫</a></li>
+            </ul>
+        </div>
+    </nav>
+    
+    <main class="container mx-auto px-4 py-6">
+    <div class="text-center mb-6">
+        <h2 class="text-2xl md:text-3xl font-bold text-primary">風場動畫</h2>
+    </div>
+
+    <u><a href= "http://eknlau5897.github.io/Earth_windy/GFS_100m/index.html">GFS 100m 風</a></u><br>
+    <u><a href= "http://eknlau5897.github.io/Earth_windy/ec_10m_wind/EC_10m.html">EC 10m 風</a></u><br>
+    <u><a href= "http://eknlau5897.github.io/Earth_windy/EC_500hPa/EC_500.html">EC 500hPa 風</a></u>
+</main>
+
+    <footer class="bg-primary text-white py-6 mt-10">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0 text-center md:text-left">
+                    <p class="text-lg font-bold">粵港澳天氣站 (GHMWS)</p>
+                    <p class="text-sm opacity-80 mt-1">本網站天氣資訊僅供參考，請以官方發布為準</p>
+                </div>
+            </div>
+            <div class="text-center text-sm opacity-80 mt-4 border-t border-white/20 pt-4">
+                © 2026 粵港澳天氣站 版權所有
+            </div>
+        </div>
+    </footer>
+
+<script>
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    mobileMenuBtn.addEventListener('click', () => {
+        mobileMenu.classList.toggle('mobile-menu-hidden');
+    });
+
+    const selectBox = document.getElementById('selectBox');
+    const selectDropdown = document.getElementById('selectDropdown');
+    const selectText = document.getElementById('selectText');
+    const trackImg = document.getElementById('trackImg');
+    const intensityImg = document.getElementById('intensityImg');
+    const options = document.querySelectorAll('.select-option');
+
+    selectBox.addEventListener('click', () => {
+        selectDropdown.classList.toggle('hidden');
+    });
+
+    options.forEach(opt => {
+        opt.addEventListener('click', () => {
+            const t = opt.dataset.type;
+            selectText.textContent = opt.textContent;
+            selectDropdown.classList.add('hidden');
+            
+            trackImg.src = `TC-Track/TC-Track-${t}.png`;
+            intensityImg.src = `TC-Track/TC-Intensity-${t}.png`;
+            trackImg.alt = `${opt.textContent} 路徑`;
+            intensityImg.alt = `${opt.textContent} 強度`;
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!selectBox.contains(e.target)) selectDropdown.classList.add('hidden');
+    });
+</script>
+</body>
+</html>

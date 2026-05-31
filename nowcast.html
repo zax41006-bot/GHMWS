@@ -1,0 +1,149 @@
+<!DOCTYPE html> 
+<html lang="zh-Hant"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>粵港澳天氣站 | 臨近降雨預報</title>
+    <link rel="icon" href="GHMWS.png" type="image/png">
+    
+    <script src="https://cdn.tailwindcss.com"></script> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> 
+     
+    <script> 
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0056b3',
+                        nav: '#007bff',
+                        darkBlue: '#0f172a',
+                    },
+                },
+            }
+        }
+    </script>
+     
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .model-card { @apply bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden; }
+            .model-img { @apply w-[85%] md:w-[75%] h-auto object-contain mx-auto rounded-lg; }
+            .control-btn { @apply w-12 h-12 flex items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-all shadow-md; }
+            .select-box { @apply bg-white border border-gray-300 px-5 py-3 rounded-lg cursor-pointer flex justify-between items-center text-lg font-medium; }
+            .select-dropdown { @apply absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden; }
+            .select-option { @apply px-5 py-3 hover:bg-primary/10 cursor-pointer transition-colors; }
+        }
+    </style>
+</head> 
+
+<body class="bg-gray-50 font-sans">
+    <header class="bg-white border-b border-gray-200 py-2 shadow-sm">
+        <div class="container mx-auto px-6 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <img src="GHMWS.png" class="w-16 h-16 object-contain">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold text-primary">粵港澳天氣站</h1>
+                    <p class="text-xs text-gray-500">Guangdong-Hong Kong-Macao Weather Station（GHMWS）</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="bg-nav">
+        <div class="container mx-auto px-4">
+            <ul class="flex flex-wrap">
+                <li><a href="index.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">首頁</a></li>
+                <li><a href="TC.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">熱帶氣旋資訊</a></li>
+                <li><a href="model.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">全球模式預報</a></li>
+                <li><a href="meso-model.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">中尺度模式預報</a></li>
+                <li><a href="ensemble.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">集合模式預報</a></li>
+                <li><a href="animation.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">風場動畫</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-6">
+        <div class="text-center mb-6">
+            <h2 class="text-2xl md:text-3xl font-bold text-primary mb-1">臨近降雨預報</h2>
+            <p class="text-primary font-medium mt-1">自動更新</p>
+        </div>
+
+        <div class="model-card relative">
+            <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+                <div class="relative">
+                    <div id="modelSelectBox" class="select-box">
+                        <span id="modelSelectText">HKO 臨近降雨預報</span>
+                        <i class="fa fa-caret-down text-primary"></i>
+                    </div>
+                    <div id="modelDropdown" class="select-dropdown hidden">
+                        <div class="select-option" data-model="swirls">HKO臨近降雨預報</div>
+                    </div>
+                </div>
+            </div>
+
+            <img id="modelImage" src="swirls/img_2d.jpg" class="model-img" alt="模式預報">
+        </div>
+
+        <div class="model-card bg-blue-50 text-gray-700 p-4 mt-4">
+            <p class="font-bold mb-1 text-lg">ℹ️ 使用說明</p>
+            <p>• 資料僅供參考，請以官方發布為準</p>
+	    <p>• 每12分鐘自動更新</p>
+        </div>
+    </main>
+
+    <footer class="bg-primary text-white py-6 mt-10">
+        <div class="container mx-auto text-center text-sm opacity-80">
+            © 2026 粵港澳天氣站 版權所有
+        </div>
+    </footer>
+
+    <script>
+       // 1. 確保 img_2d 有定義，或者是直接用數值
+const img_2d = "img_2d"; // 假設這是你要顯示的圖像對應的 Fxx 值
+const pathConfig = {
+    "swirls": "swirls/" // 這裡直接存儲資料夾路徑
+};
+
+const fxxList = [img_2d];
+let currentFxx = img_2d;
+let currentModel = "swirls";
+let autoPlay = null;
+
+const img = document.getElementById("modelImage");
+const modelSelectText = document.getElementById("modelSelectText");
+
+// 2. 簡化 updateImage：直接用模型路徑 + Fxx
+function updateImage() {
+    const basePath = pathConfig[currentModel];
+    // 假設路徑格式為: swirls/240.png
+    img.src = basePath + currentFxx + ".png";
+}
+
+// 3. 模型切換邏輯
+document.getElementById("modelSelectBox").addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("modelDropdown").classList.toggle("hidden");
+});
+
+document.querySelectorAll("#modelDropdown .select-option").forEach(option => {
+    option.addEventListener("click", () => {
+        currentModel = option.dataset.model; // 確保 HTML 裡的 data-model="swirls"
+        modelSelectText.innerText = option.innerText;
+        document.getElementById("modelDropdown").classList.add("hidden");
+        
+        updateImage(); // 直接更新圖片
+    });
+});
+
+// 4. 修正語法錯誤：點擊外部關閉選單
+document.addEventListener("click", (e) => {
+    const modelBox = document.getElementById("modelSelectBox");
+    if (!modelBox.contains(e.target)) {
+        document.getElementById("modelDropdown").classList.add("hidden");
+    }
+});
+
+// 初始化
+updateImage();
+    </script>
+</body>
+</html>
