@@ -4,7 +4,7 @@ WORKSPACE="/Users/eknlau/VS_code/GHMWS/ensemble-track"
 cd "$WORKSPACE"
 
 echo "========================================================="
-echo " Starting Google Weather Lab Live CSV Ingestion Engine"
+echo " Starting Google Weather Lab Path-Optimized Engine"
 echo "========================================================="
 
 while true; do
@@ -37,7 +37,6 @@ date_folder = f"{yyyy}{mm}{dd}"
 cycle_str = f"{init_time:02d}Z"
 time_stamp_str = f"{yyyy}_{mm}_{dd}T{init_time:02d}_00"
 
-# Configuration setup for GENC and FNV3 configurations
 models = {
     "GENC": {
         "line_color": "#009688", 
@@ -51,23 +50,27 @@ models = {
     }
 }
 
-# Unified Pressure Mapping Matrix
 bounds = [900, 915, 930, 945, 960, 970, 980, 990, 1000, 1010]
 cmap = mcolors.ListedColormap(['#4a148c', '#880e4f', '#b71c1c', '#e65100', '#ff8f00', '#fbc02d', '#4db6ac', '#0277bd', '#808080'])
 norm = mcolors.BoundaryNorm(bounds, cmap.N)
 
 for model_name, cfg in models.items():
-    model_dir = os.path.join(base_path, model_name, date_folder, cycle_str)
-    os.makedirs(model_dir, exist_ok=True)
+    # Base target path as specified
+    model_base_dir = os.path.join(base_path, model_name)
     
-    local_csv_path = os.path.join(model_dir, f"{model_name.lower()}-unpaired-NWP.csv")
-    output_png = os.path.join(model_dir, "240.png")
+    # Nested cyclical directory tree for specific run storage
+    run_dir = os.path.join(model_base_dir, date_folder, cycle_str)
+    os.makedirs(run_dir, exist_ok=True)
     
-    # 2. TARGET DIRECT URL ASSEMBLY 
+    local_csv_path = os.path.join(run_dir, f"{model_name.lower()}-unpaired-NWP.csv")
+    
+    # --- DUAL PATH DESTINATIONS ---
+    archive_png = os.path.join(run_dir, "240.png")            # In the run folder
+    latest_png = os.path.join(model_base_dir, "latest_240.png") # Direct root of FNV3 / GENC
+    
     target_url = f"https://deepmind.google.com/science/weatherlab/download/cyclones/{model_name}/ensemble/cyclogenesis/csv/{model_name}_{time_stamp_str}_cyclogenesis.csv"
     
-    print(f"[{datetime.now()}] Pulling {model_name} track matrix fields...")
-    print(f"Target: {target_url}")
+    print(f"[{datetime.now()}] Requesting data for {model_name}...")
     
     try:
         r = requests.get(target_url, timeout=15)
@@ -79,16 +82,13 @@ for model_name, cfg in models.items():
             f.write(r.content)
             
         df = pd.read_csv(local_csv_path)
-        if df.empty:
-            print(f"--> Document downloaded for {model_name} contains no rows.")
-            continue
+        if df.empty: continue
             
-        # Standardize structural headers across variants
         if 'member' in df.columns: df = df.rename(columns={'member': 'sample'})
         if 'lead_time' in df.columns: df = df.rename(columns={'lead_time': 'fxx'})
         if 'mslp' in df.columns: df = df.rename(columns={'mslp': 'pressure'})
         
-        # 3. CANVAS GENERATION ENGINE
+        # 2. CANVAS CORE ENGINE
         fig, ax = plt.subplots(figsize=(12, 9), dpi=120, subplot_kw={'projection': ccrs.PlateCarree()})
         ax.set_extent([100, 180, 0, 60])
         ax.add_feature(cfeature.LAND, facecolor='#f5f5f5', edgecolor='#d6d6d6')
@@ -98,7 +98,7 @@ for model_name, cfg in models.items():
         gl = ax.gridlines(draw_labels=True, linestyle=':', alpha=0.4, color='#7f8c8d')
         gl.top_labels, gl.right_labels = False, False
 
-        # Group and chronologically link coordinate pairs by forecast hour
+        # Connect ensemble tracks chronologically via sorted forecast hours
         for _, group in df.groupby('sample'):
             sorted_group = group.sort_values('fxx')
             ax.plot(
@@ -109,24 +109,27 @@ for model_name, cfg in models.items():
             
         ax.scatter(df['lon'], df['lat'], edgecolors=cmap(norm(df['pressure'])), facecolors='none', s=25, linewidths=1.2, transform=ccrs.PlateCarree())
         
-        # Labels & Final File Compilations
         plt.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=norm), ax=ax, pad=0.03, fraction=0.04, aspect=30).set_label('Minimum Sea Level Pressure (hPa)', weight='bold')
         plt.title(cfg["title"], fontsize=15, fontweight='bold', pad=20)
-        plt.text(0.5, 1.01, f"Initial Run: {yyyy}-{mm}-{dd} {cycle_str} | DeepMind WeatherLab Pipeline", transform=ax.transAxes, ha='center', fontsize=11, color='#555555')
+        plt.text(0.5, 1.01, f"Initial Run Window: {yyyy}-{mm}-{dd} {cycle_str}", transform=ax.transAxes, ha='center', fontsize=11, color='#555555')
         
-        plt.savefig(output_png, bbox_inches='tight')
+        # 3. DUAL PATH SAVE EXECUTIONS
+        plt.savefig(archive_png, bbox_inches='tight')  # Path 1: Cycle Archive
+        plt.savefig(latest_png, bbox_inches='tight')   # Path 2: Root Overwrite File
+        
         plt.close(fig)
-        print(f"--> Asset updated completely: {output_png}")
+        print(f"--> [SUCCESS] Archived: {archive_png}")
+        print(f"--> [SUCCESS] Latest updated: {latest_png}")
         
     except Exception as e:
-        print(f"--> Engine process broke during execution for {model_name}: {e}")
+        print(f"--> Engine process error for {model_name}: {e}")
         continue
 EOF
 
     # 4. REMOTE PRODUCTION REPO SYNCHRONIZATION
-    echo "Pushing Weather Lab layers to repository remote host..."
+    echo "Pushing changes up to remote master tracking branch..."
     git add .
-    git commit -m "Automated Sync: GENC & FNV3 cyclogenesis structures updated for $(date +%Y%m%d_%H%MZ)"
+    git commit -m "Automated Sync: Multi-path track arrays updated for GENC & FNV3"
     git push origin main
     
     echo "========================================================="
