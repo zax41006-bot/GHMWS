@@ -15,6 +15,10 @@ import os
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
+
+# --- CRITICAL MATPLOTLIB HEADLESS RENDER CONFIGURATION ---
+import matplotlib
+matplotlib.use('Agg') # Lock backend to headless safe raster generation
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
@@ -42,12 +46,10 @@ norm = mcolors.BoundaryNorm(bounds, cmap.N)
 for model_name, cfg in models.items():
     print(f"[{datetime.now()}] Initializing search engine for {model_name}...")
     
-    # Try looking for the most recent cycle, fallback up to 4 cycles (24 hours) if Google hasn't posted data yet
     success = False
     for lookback_hours in range(0, 25, 6):
         now_utc = datetime.utcnow() - timedelta(hours=lookback_hours)
         
-        # Calculate standard forecast initialization window
         if now_utc.hour >= 18: init_time = 18
         elif now_utc.hour >= 12: init_time = 12
         elif now_utc.hour >= 6: init_time = 6
@@ -69,11 +71,9 @@ for model_name, cfg in models.items():
             if r.status_code != 200:
                 continue
                 
-            # Guardrail: Catch HTML error responses masquerading as CSV files
             if r.text.lstrip().startswith("<!DOCTYPE html>") or "<html" in r.text.lower():
                 continue
                 
-            # Define output directory structures once verified valid
             model_base_dir = os.path.join(base_path, model_name)
             run_dir = os.path.join(model_base_dir, date_folder, cycle_str)
             os.makedirs(run_dir, exist_ok=True)
@@ -89,12 +89,11 @@ for model_name, cfg in models.items():
             if df.empty:
                 continue
                 
-            # Headers normalization wrapper
             if 'member' in df.columns: df = df.rename(columns={'member': 'sample'})
             if 'lead_time' in df.columns: df = df.rename(columns={'lead_time': 'fxx'})
             if 'mslp' in df.columns: df = df.rename(columns={'mslp': 'pressure'})
             
-            # Canvas Engine
+            # --- CANVAS ENGINE EXECUTION ---
             fig, ax = plt.subplots(figsize=(12, 9), dpi=120, subplot_kw={'projection': ccrs.PlateCarree()})
             ax.set_extent([100, 180, 0, 60], crs=ccrs.PlateCarree())
             
@@ -119,13 +118,14 @@ for model_name, cfg in models.items():
             plt.title(cfg["title"], fontsize=15, fontweight='bold', pad=20)
             plt.text(0.5, 1.01, f"Initial Run: {yyyy}-{mm}-{dd} {cycle_str} | DeepMind WeatherLab Pipeline", transform=ax.transAxes, ha='center', fontsize=11, color='#555555')
             
-            plt.savefig(archive_png, bbox_inches='tight')
-            plt.savefig(latest_png, bbox_inches='tight')
+            # Save hard writes to disk layout destinations explicitly
+            fig.savefig(archive_png, bbox_inches='tight')
+            fig.savefig(latest_png, bbox_inches='tight')
             plt.close(fig)
             
-            print(f"--> [SUCCESS] Processed {cycle_str}! Saved to archive and root.")
+            print(f"--> [SUCCESS] Processed {cycle_str}! Plots generated safely.")
             success = True
-            break # Exit lookback loop, proceed to next model
+            break 
             
         except Exception as e:
             print(f"    Internal cycle error for {cycle_str}: {e}")
@@ -137,7 +137,7 @@ EOF
 
     echo "Pushing changes up to remote master tracking branch..."
     git add .
-    git commit -m "Automated Sync: Self-healing WeatherLab tracks fallback loop complete"
+    git commit -m "Automated Sync: Fixed head-less matplotlib Agg renderer"
     git push origin main
     
     echo "========================================================="
