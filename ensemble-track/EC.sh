@@ -63,8 +63,9 @@ line_color, line_style = '#546e7a', '-'
 title_prefix, title_color = "ECMWF", '#1a237e'
 subtitle = f"{forecast_hours}-hour Forecast"
 
-output_png = os.path.join(path, f"{forecast_hours}.png")
-print(f"[{datetime.now()}] Processing {model_type} ({time_str}) for {forecast_hours} hours...")
+# Reverted strictly back to 240.png as requested
+output_png = os.path.join(path, "240.png")
+print(f"[{datetime.now()}] Processing {model_type} ({time_str}) for {forecast_hours} hours -> Saving to 240.png...")
 
 try:
     client = Client(**client_kwargs)
@@ -185,8 +186,9 @@ line_color, line_style = '#1e88e5', '--'
 title_prefix, title_color = "AIFS", '#0d47a1'
 subtitle = f"{forecast_hours}-hour Forecast (aifs-ens)"
 
-output_png = os.path.join(path, f"{forecast_hours}.png")
-print(f"[{datetime.now()}] Processing {model_type} ({time_str}) for {forecast_hours} hours...")
+# Reverted strictly back to 240.png as requested
+output_png = os.path.join(path, "240.png")
+print(f"[{datetime.now()}] Processing {model_type} ({time_str}) for {forecast_hours} hours -> Saving to 240.png...")
 
 try:
     client = Client(**client_kwargs)
