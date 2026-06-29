@@ -26,13 +26,12 @@ import cartopy.feature as cfeature
 
 base_path = "/Users/eknlau/VS_code/GHMWS/ensemble-track/wp"
 
+# Match your specific configuration architecture mapping requirements
 models = {
     "GENC": {
-        "line_color": "gray", # Preserving your snippet color settings
         "title": "GENC Ensemble Tracks - GHMWS"
     },
     "FNV3": {
-        "line_color": "gray", 
         "title": "FNV3 Ensemble Tracks - GHMWS"
     }
 }
@@ -72,36 +71,36 @@ for model_name, cfg in models.items():
             if r.text.lstrip().startswith("<!DOCTYPE html>") or "<html" in r.text.lower():
                 continue
                 
-            # Define your destination paths exactly
-            model_base_dir = os.path.join(base_path, model_name)
-            run_dir = os.path.join(model_base_dir, date_folder, cycle_str)
+            # Align exact path parameters with your configuration string mapping setup
+            path_2 = f"/Users/eknlau/VS_code/GHMWS/ensemble-track/wp/{model_name}/"
+            run_dir = os.path.join(path_2, date_folder, cycle_str)
             os.makedirs(run_dir, exist_ok=True)
             
             local_csv_path = os.path.join(run_dir, f"{model_name.lower()}-unpaired-NWP.csv")
             archive_png = os.path.join(run_dir, "240.png")            
-            latest_png = os.path.join(model_base_dir, "latest_240.png")
+            latest_png = os.path.join(path_2, "latest_240.png")
             
             with open(local_csv_path, 'wb') as f:
                 f.write(r.content)
                 
+            # Read downloaded dataset natively into your designated structural dataframe container
             df_2 = pd.read_csv(local_csv_path)
             if df_2.empty:
                 continue
                 
-            # Header Normalization
+            # Clean/Standardize dataset headers across variants
             if 'member' in df_2.columns: df_2 = df_2.rename(columns={'member': 'sample'})
             if 'lead_time' in df_2.columns: df_2 = df_2.rename(columns={'lead_time': 'fxx'})
             if 'mslp' in df_2.columns: df_2 = df_2.rename(columns={'mslp': 'pressure'})
             if 'track' not in df_2.columns: df_2['track'] = f"Invest_{model_name}"
             
-            # --- CHRONOLOGICAL SORTING FIX ---
-            # Sort globally first to ensure correct plotting connect-order
+            # Sort arrays explicitly to keep timeline track vectors fluid and non-jagged
             df_2 = df_2.sort_values(by=['track', 'sample', 'fxx'])
             
             base_time_str = f"{yyyy}-{mm}-{dd} {cycle_str}"
 
             # -------------------------------------------------------------
-            # INTEGRATED CANVAS ENGINE
+            # YOUR CUSTOM CANVAS GENERATION ENGINE LAYOUT
             # -------------------------------------------------------------
             fig = plt.figure(figsize=(12, 9), dpi=100)
             ax_2 = plt.axes(projection=ccrs.PlateCarree())
@@ -115,20 +114,19 @@ for model_name, cfg in models.items():
             gl.top_labels = False
             gl.right_labels = False
 
-            # Draw tracks according to your custom grouping criteria
+            # Trace ensemble threads via your track group conditions
             for _, group in df_2.groupby(['track', 'sample']):
                 ax_2.plot(
-                    group['lon'], group['lat'], 
-                    color=cfg["line_color"], linewidth=0.6, alpha=0.2, 
+                    group['lon'], group['lat'], color='gray', linewidth=0.6, alpha=0.2, 
                     transform=ccrs.PlateCarree(), zorder=3
                 )
 
-            # Scatter plot using standard df_2 layout references
+            # Intensity layout plots using df_2 context
             sc = ax_2.scatter(
                 df_2['lon'], df_2['lat'], 
                 edgecolors=cmap(norm(df_2['pressure'])), 
                 facecolors='none', 
-                s=15,          
+                s=15,             
                 linewidths=1.2,    
                 alpha=0.9, 
                 transform=ccrs.PlateCarree(), zorder=4
@@ -143,12 +141,12 @@ for model_name, cfg in models.items():
             plt.text(0.5, 1.05, "360-hour Forecast", transform=ax_2.transAxes, ha='center', fontsize=13, fontweight='bold', color='#333333')
             plt.text(0.5, 1.02, f"Initial Time: {base_time_str}", transform=ax_2.transAxes, ha='center', fontsize=11, color='#546e7a')
             
-            # Save out to both of your standard target path blueprints
-            plt.savefig(archive_png, bbox_inches='tight')
-            plt.savefig(latest_png, bbox_inches='tight')
+            # Save to both target output destinations cleanly
+            plt.savefig(archive_png, bbox_inches='tight') # Path 1: Cyclical Archive Log
+            plt.savefig(latest_png, bbox_inches='tight')  # Path 2: Production Base Target Root
             plt.close(fig)
             
-            print(f"--> [SUCCESS] Processed {cycle_str}! Visual assets stored completely.")
+            print(f"--> [SUCCESS] Processed {cycle_str}! Visual maps written safely.")
             success = True
             break 
             
@@ -162,7 +160,7 @@ EOF
 
     echo "Pushing updates to production repository main branch..."
     git add .
-    git commit -m "Automated Sync: Core track styles upgraded for GENC & FNV3"
+    git commit -m "Automated Sync: Core track layout engine synchronized for GENC & FNV3"
     git push origin main
     
     echo "========================================================="
