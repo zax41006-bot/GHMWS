@@ -46,10 +46,21 @@ for model_name, cfg in models.items():
     for lookback_hours in range(0, 25, 6):
         now_utc = datetime.utcnow() - timedelta(hours=lookback_hours)
         
-        if now_utc.hour >= 18: init_time = 18
-        elif now_utc.hour >= 12: init_time = 12
-        elif now_utc.hour >= 6: init_time = 6
-        else: init_time = 0
+        if now_utc.hour >= 20:
+            init_date_dt = now_utc
+            init_time = 12
+        elif now_utc.hour >= 14:
+            init_date_dt = now_utc
+            init_time = 6
+        elif now_utc.hour >= 8:
+            init_date_dt = now_utc
+            init_time = 0
+        elif now_utc.hour >= 2:
+            init_date_dt = now_utc - timedelta(days=1)
+            init_time = 18
+        else:
+            init_date_dt = now_utc - timedelta(days=1)
+            init_time = 12
         
         yyyy = now_utc.strftime("%Y")
         mm = now_utc.strftime("%m")
