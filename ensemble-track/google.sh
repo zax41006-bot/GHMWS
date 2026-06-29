@@ -22,13 +22,13 @@ import cartopy.feature as cfeature
 
 base_path = "/Users/eknlau/VS_code/GHMWS/ensemble-track/wp"
 
-# 1. CYCLICAL TIMING MATRIX
-now_utc = datetime.utcnow()
-if now_utc.hour >= 21: init_date_dt, init_time = now_utc, 12
-elif now_utc.hour >= 15: init_date_dt, init_time = now_utc, 6
-elif now_utc.hour >= 9: init_date_dt, init_time = now_utc, 0
-elif now_utc.hour >= 3: init_date_dt, init_time = now_utc - timedelta(days=1), 18
-else: init_date_dt, init_time = now_utc - timedelta(days=1), 12
+# 1. CYCLICAL TIMING MATRIX (Adjusted with a 6-hour delay buffer to find completed runs)
+now_utc = datetime.utcnow() - timedelta(hours=6)
+
+if now_utc.hour >= 18: init_date_dt, init_time = now_utc, 18
+elif now_utc.hour >= 12: init_date_dt, init_time = now_utc, 12
+elif now_utc.hour >= 6: init_date_dt, init_time = now_utc, 6
+else: init_date_dt, init_time = now_utc, 0
 
 yyyy = init_date_dt.strftime("%Y")
 mm = init_date_dt.strftime("%m")
@@ -55,22 +55,18 @@ cmap = mcolors.ListedColormap(['#4a148c', '#880e4f', '#b71c1c', '#e65100', '#ff8
 norm = mcolors.BoundaryNorm(bounds, cmap.N)
 
 for model_name, cfg in models.items():
-    # Base target path as specified
     model_base_dir = os.path.join(base_path, model_name)
-    
-    # Nested cyclical directory tree for specific run storage
     run_dir = os.path.join(model_base_dir, date_folder, cycle_str)
     os.makedirs(run_dir, exist_ok=True)
     
     local_csv_path = os.path.join(run_dir, f"{model_name.lower()}-unpaired-NWP.csv")
-    
-    # --- DUAL PATH DESTINATIONS ---
-    archive_png = os.path.join(run_dir, "240.png")            # In the run folder
-    latest_png = os.path.join(model_base_dir, "latest_240.png") # Direct root of FNV3 / GENC
+    archive_png = os.path.join(run_dir, "240.png")            
+    latest_png = os.path.join(model_base_dir, "latest_240.png") 
     
     target_url = f"https://deepmind.google.com/science/weatherlab/download/cyclones/{model_name}/ensemble/cyclogenesis/csv/{model_name}_{time_stamp_str}_cyclogenesis.csv"
     
-    print(f"[{datetime.now()}] Requesting data for {model_name}...")
+    print(f"[{datetime.now()}] Requesting data for {model_name} ({cycle_str})...")
+    print(f"Target URL: {target_url}")
     
     try:
         r = requests.get(target_url, timeout=15)
@@ -78,6 +74,11 @@ for model_name, cfg in models.items():
             print(f"--> File unavailable on DeepMind host (HTTP {r.status_code}). Skipping {model_name}.")
             continue
             
+        # 2. HTML CONTENT PROTECTION FILTER
+        if r.text.lstrip().startswith("<!DOCTYPE html>") or "<html" in r.text.lower():
+            print(f"--> Google server returned an HTML error landing page instead of a CSV database. Skipping {model_name}.")
+            continue
+
         with open(local_csv_path, 'wb') as f:
             f.write(r.content)
             
@@ -88,7 +89,7 @@ for model_name, cfg in models.items():
         if 'lead_time' in df.columns: df = df.rename(columns={'lead_time': 'fxx'})
         if 'mslp' in df.columns: df = df.rename(columns={'mslp': 'pressure'})
         
-        # 2. CANVAS CORE ENGINE
+        # 3. CANVAS CORE ENGINE
         fig, ax = plt.subplots(figsize=(12, 9), dpi=120, subplot_kw={'projection': ccrs.PlateCarree()})
         ax.set_extent([100, 180, 0, 60])
         ax.add_feature(cfeature.LAND, facecolor='#f5f5f5', edgecolor='#d6d6d6')
@@ -98,7 +99,6 @@ for model_name, cfg in models.items():
         gl = ax.gridlines(draw_labels=True, linestyle=':', alpha=0.4, color='#7f8c8d')
         gl.top_labels, gl.right_labels = False, False
 
-        # Connect ensemble tracks chronologically via sorted forecast hours
         for _, group in df.groupby('sample'):
             sorted_group = group.sort_values('fxx')
             ax.plot(
@@ -113,9 +113,9 @@ for model_name, cfg in models.items():
         plt.title(cfg["title"], fontsize=15, fontweight='bold', pad=20)
         plt.text(0.5, 1.01, f"Initial Run Window: {yyyy}-{mm}-{dd} {cycle_str}", transform=ax.transAxes, ha='center', fontsize=11, color='#555555')
         
-        # 3. DUAL PATH SAVE EXECUTIONS
-        plt.savefig(archive_png, bbox_inches='tight')  # Path 1: Cycle Archive
-        plt.savefig(latest_png, bbox_inches='tight')   # Path 2: Root Overwrite File
+        # 4. PATH EXECUTIONS
+        plt.savefig(archive_png, bbox_inches='tight')  
+        plt.savefig(latest_png, bbox_inches='tight')   
         
         plt.close(fig)
         print(f"--> [SUCCESS] Archived: {archive_png}")
@@ -126,10 +126,9 @@ for model_name, cfg in models.items():
         continue
 EOF
 
-    # 4. REMOTE PRODUCTION REPO SYNCHRONIZATION
     echo "Pushing changes up to remote master tracking branch..."
     git add .
-    git commit -m "Automated Sync: Multi-path track arrays updated for GENC & FNV3"
+    git commit -m "Automated Sync: Fixed multi-path track arrays for GENC & FNV3"
     git push origin main
     
     echo "========================================================="
