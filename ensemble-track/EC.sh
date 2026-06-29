@@ -12,7 +12,7 @@ import sys
 from datetime import datetime, timedelta
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.colors mcolors
+import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from ecmwf.opendata import Client
@@ -148,5 +148,5 @@ while true; do
     echo "========================================================="
     echo "Cycle completed. Sleeping for 12 hours..."
     echo "========================================================="
-    sleep 43200
+    sleep 21600
 done
