@@ -16,9 +16,9 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 
-# --- CRITICAL MATPLOTLIB HEADLESS RENDER CONFIGURATION ---
+# --- MATPLOTLIB HEADLESS RUNTIME ---
 import matplotlib
-matplotlib.use('Agg') # Lock backend to headless safe raster generation
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
@@ -28,14 +28,12 @@ base_path = "/Users/eknlau/VS_code/GHMWS/ensemble-track/wp"
 
 models = {
     "GENC": {
-        "line_color": "#009688", 
-        "line_style": "--", 
-        "title": "Google Weather Lab GENC Unpaired Ensemble"
+        "line_color": "gray", # Preserving your snippet color settings
+        "title": "GENC Ensemble Tracks - GHMWS"
     },
     "FNV3": {
-        "line_color": "#ff5722", 
-        "line_style": "-", 
-        "title": "Google Weather Lab FNV3 Ensemble Tracks"
+        "line_color": "gray", 
+        "title": "FNV3 Ensemble Tracks - GHMWS"
     }
 }
 
@@ -74,6 +72,7 @@ for model_name, cfg in models.items():
             if r.text.lstrip().startswith("<!DOCTYPE html>") or "<html" in r.text.lower():
                 continue
                 
+            # Define your destination paths exactly
             model_base_dir = os.path.join(base_path, model_name)
             run_dir = os.path.join(model_base_dir, date_folder, cycle_str)
             os.makedirs(run_dir, exist_ok=True)
@@ -85,45 +84,71 @@ for model_name, cfg in models.items():
             with open(local_csv_path, 'wb') as f:
                 f.write(r.content)
                 
-            df = pd.read_csv(local_csv_path)
-            if df.empty:
+            df_2 = pd.read_csv(local_csv_path)
+            if df_2.empty:
                 continue
                 
-            if 'member' in df.columns: df = df.rename(columns={'member': 'sample'})
-            if 'lead_time' in df.columns: df = df.rename(columns={'lead_time': 'fxx'})
-            if 'mslp' in df.columns: df = df.rename(columns={'mslp': 'pressure'})
+            # Header Normalization
+            if 'member' in df_2.columns: df_2 = df_2.rename(columns={'member': 'sample'})
+            if 'lead_time' in df_2.columns: df_2 = df_2.rename(columns={'lead_time': 'fxx'})
+            if 'mslp' in df_2.columns: df_2 = df_2.rename(columns={'mslp': 'pressure'})
+            if 'track' not in df_2.columns: df_2['track'] = f"Invest_{model_name}"
             
-            # --- CANVAS ENGINE EXECUTION ---
-            fig, ax = plt.subplots(figsize=(12, 9), dpi=120, subplot_kw={'projection': ccrs.PlateCarree()})
-            ax.set_extent([100, 180, 0, 60], crs=ccrs.PlateCarree())
+            # --- CHRONOLOGICAL SORTING FIX ---
+            # Sort globally first to ensure correct plotting connect-order
+            df_2 = df_2.sort_values(by=['track', 'sample', 'fxx'])
             
-            ax.add_feature(cfeature.LAND, facecolor='#f5f5f5', edgecolor='#d6d6d6')
-            ax.add_feature(cfeature.COASTLINE, linewidth=0.7, edgecolor='#333333')
-            ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=0.4, edgecolor='#a0a0a0')
-            
-            gl = ax.gridlines(draw_labels=True, linestyle=':', alpha=0.4, color='#7f8c8d')
-            gl.top_labels, gl.right_labels = False, False
+            base_time_str = f"{yyyy}-{mm}-{dd} {cycle_str}"
 
-            for _, group in df.groupby('sample'):
-                sorted_group = group.sort_values('fxx')
-                ax.plot(
-                    sorted_group['lon'], sorted_group['lat'], 
-                    color=cfg["line_color"], linestyle=cfg["line_style"], 
-                    linewidth=0.8, alpha=0.5, transform=ccrs.PlateCarree()
+            # -------------------------------------------------------------
+            # INTEGRATED CANVAS ENGINE
+            # -------------------------------------------------------------
+            fig = plt.figure(figsize=(12, 9), dpi=100)
+            ax_2 = plt.axes(projection=ccrs.PlateCarree())
+            ax_2.set_extent([100, 180, 0, 60], crs=ccrs.PlateCarree())
+
+            ax_2.add_feature(cfeature.COASTLINE, linewidth=0.6, zorder=2)
+            ax_2.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.4, zorder=2)
+            ax_2.add_feature(cfeature.LAND, facecolor='#f5f5f5', zorder=1)
+
+            gl = ax_2.gridlines(draw_labels=True, linestyle='--', alpha=0.5)
+            gl.top_labels = False
+            gl.right_labels = False
+
+            # Draw tracks according to your custom grouping criteria
+            for _, group in df_2.groupby(['track', 'sample']):
+                ax_2.plot(
+                    group['lon'], group['lat'], 
+                    color=cfg["line_color"], linewidth=0.6, alpha=0.2, 
+                    transform=ccrs.PlateCarree(), zorder=3
                 )
-                
-            ax.scatter(df['lon'], df['lat'], edgecolors=cmap(norm(df['pressure'])), facecolors='none', s=25, linewidths=1.2, transform=ccrs.PlateCarree())
+
+            # Scatter plot using standard df_2 layout references
+            sc = ax_2.scatter(
+                df_2['lon'], df_2['lat'], 
+                edgecolors=cmap(norm(df_2['pressure'])), 
+                facecolors='none', 
+                s=15,          
+                linewidths=1.2,    
+                alpha=0.9, 
+                transform=ccrs.PlateCarree(), zorder=4
+            )
+
+            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            cbar = plt.colorbar(sm, ax=ax_2, pad=0.04, fraction=0.05, aspect=25)
+            cbar.set_label('Minimum Sea Level Pressure (hPa)', rotation=270, labelpad=20)
+            cbar.set_ticks(bounds) 
+
+            plt.title(cfg["title"], fontsize=16, fontweight='bold', pad=40, color='#1a237e')
+            plt.text(0.5, 1.05, "360-hour Forecast", transform=ax_2.transAxes, ha='center', fontsize=13, fontweight='bold', color='#333333')
+            plt.text(0.5, 1.02, f"Initial Time: {base_time_str}", transform=ax_2.transAxes, ha='center', fontsize=11, color='#546e7a')
             
-            plt.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=norm), ax=ax, pad=0.03, fraction=0.04, aspect=30).set_label('Minimum Sea Level Pressure (hPa)', weight='bold')
-            plt.title(cfg["title"], fontsize=15, fontweight='bold', pad=20)
-            plt.text(0.5, 1.01, f"Initial Run: {yyyy}-{mm}-{dd} {cycle_str} | DeepMind WeatherLab Pipeline", transform=ax.transAxes, ha='center', fontsize=11, color='#555555')
-            
-            # Save hard writes to disk layout destinations explicitly
-            fig.savefig(archive_png, bbox_inches='tight')
-            fig.savefig(latest_png, bbox_inches='tight')
+            # Save out to both of your standard target path blueprints
+            plt.savefig(archive_png, bbox_inches='tight')
+            plt.savefig(latest_png, bbox_inches='tight')
             plt.close(fig)
             
-            print(f"--> [SUCCESS] Processed {cycle_str}! Plots generated safely.")
+            print(f"--> [SUCCESS] Processed {cycle_str}! Visual assets stored completely.")
             success = True
             break 
             
@@ -135,9 +160,9 @@ for model_name, cfg in models.items():
         print(f"[WARN] Failed to find any valid recent cycles for {model_name} in the last 24 hours.")
 EOF
 
-    echo "Pushing changes up to remote master tracking branch..."
+    echo "Pushing updates to production repository main branch..."
     git add .
-    git commit -m "Automated Sync: Fixed head-less matplotlib Agg renderer"
+    git commit -m "Automated Sync: Core track styles upgraded for GENC & FNV3"
     git push origin main
     
     echo "========================================================="
