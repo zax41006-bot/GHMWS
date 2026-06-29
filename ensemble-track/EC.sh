@@ -150,12 +150,18 @@ model_type = sys.argv[1]
 
 # 1. Compute closest operational runtime
 now_utc = datetime.utcnow()
-if now_utc.hour >= 18:
+f now_utc.hour >= 21:
     init_date_dt = now_utc
     init_time = 12
-elif now_utc.hour >= 6:
+elif now_utc.hour >= 15:
+    init_date_dt = now_utc
+    init_time = 6
+elif now_utc.hour >= 9:
     init_date_dt = now_utc
     init_time = 0
+elif now_utc.hour >= 3:
+    init_date_dt = now_utc - timedelta(days=1)
+    init_time = 18
 else:
     init_date_dt = now_utc - timedelta(days=1)
     init_time = 12
