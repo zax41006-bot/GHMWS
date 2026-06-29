@@ -7,7 +7,7 @@ echo "========================================================="
 while true; do
     echo "--- Cycle Started at $(date) ---"
 
-    # ==================== 1. ECMWF (IFS) PIPELINE ====================
+    # Execute Python directly inside the shell script via Here-Doc execution
     python3.11 - "ECMWF" << 'EOF'
 import os
 import sys
@@ -22,7 +22,7 @@ import earthkit.data
 
 model_type = sys.argv[1]
 
-# Compute closest operational runtime
+# 1. Compute closest operational runtime
 now_utc = datetime.utcnow()
 if now_utc.hour >= 20:
     init_date_dt = now_utc
@@ -40,6 +40,7 @@ else:
     init_date_dt = now_utc - timedelta(days=1)
     init_time = 12
 
+
 init_date = init_date_dt.strftime("%Y-%m-%d")
 date_folder = init_date_dt.strftime("%Y%m%d")
 time_str = f"{init_time:02d}Z"
@@ -48,32 +49,27 @@ path = f"/Users/eknlau/VS_code/GHMWS/ensemble-track/wp/{model_type}/{date_folder
 if not os.path.exists(path):
     os.makedirs(path)
 
-# Conditionally change steps based on model run hour
 if model_type == "ECMWF":
     target_bufr = os.path.join(path, f"ifs-{init_date}-{time_str}.bufr")
     csv_nwp = os.path.join(path, f"ifs-{init_date}-{time_str}-NWP.csv")
     client_kwargs = {"source": "ecmwf", "model": "ifs"}
     line_color, line_style = '#546e7a', '-'
     title_prefix, title_color = "ECMWF", '#1a237e'
-    
-    # 6Z and 18Z cycles run up to 144h, 00Z and 12Z run up to 360h
-    forecast_step = 144 if init_time in [6, 18] else 360
-    subtitle = f"{forecast_step}-hour Forecast"
-else: 
+    subtitle = "360-hour Forecast"
+else: # AIFS
     target_bufr = os.path.join(path, f"aifs-{init_date}-{time_str}.bufr")
     csv_nwp = os.path.join(path, f"aifs-{init_date}-{time_str}-NWP.csv")
     client_kwargs = {"source": "ecmwf", "model": "aifs-ens"}
     line_color, line_style = '#1e88e5', '--'
     title_prefix, title_color = "AIFS", '#0d47a1'
-    forecast_step = 360
     subtitle = "360-hour Forecast (aifs-ens)"
 
 output_png = os.path.join(path, "240.png")
-print(f"[{datetime.now()}] Processing {model_type} for {init_date} {time_str} ({forecast_step}h)...")
+print(f"[{datetime.now()}] Processing {model_type} for {init_date} {time_str}...")
 
 try:
     client = Client(**client_kwargs)
-    client.retrieve(date=init_date, time=init_time, type="tf", stream="enfo", step=forecast_step, target=target_bufr)
+    client.retrieve(date=init_date, time=init_time, type="tf", stream="enfo", step=360, target=target_bufr)
 except Exception as e:
     print(f"Data not ready or download failed for {model_type}: {e}")
     sys.exit(0)
@@ -137,7 +133,7 @@ EOF
 
     echo "---------------------------------------------------------"
 
-    # ==================== 2. AIFS PIPELINE ====================
+    # Now rerun the embedded script passing the AIFS arguments down 
     python3.11 - "AIFS" << 'EOF'
 import os
 import sys
@@ -152,7 +148,7 @@ import earthkit.data
 
 model_type = sys.argv[1]
 
-# Compute closest operational runtime
+# 1. Compute closest operational runtime
 now_utc = datetime.utcnow()
 if now_utc.hour >= 20:
     init_date_dt = now_utc
@@ -178,30 +174,27 @@ path = f"/Users/eknlau/VS_code/GHMWS/ensemble-track/wp/{model_type}/{date_folder
 if not os.path.exists(path):
     os.makedirs(path)
 
-# AIFS keeps everything at 360h across all cycles
 if model_type == "ECMWF":
     target_bufr = os.path.join(path, f"ifs-{init_date}-{time_str}.bufr")
     csv_nwp = os.path.join(path, f"ifs-{init_date}-{time_str}-NWP.csv")
     client_kwargs = {"source": "ecmwf", "model": "ifs"}
     line_color, line_style = '#546e7a', '-'
     title_prefix, title_color = "ECMWF", '#1a237e'
-    forecast_step = 144 if init_time in [6, 18] else 360
-    subtitle = f"{forecast_step}-hour Forecast"
-else: 
+    subtitle = "360-hour Forecast"
+else: # AIFS
     target_bufr = os.path.join(path, f"aifs-{init_date}-{time_str}.bufr")
     csv_nwp = os.path.join(path, f"aifs-{init_date}-{time_str}-NWP.csv")
     client_kwargs = {"source": "ecmwf", "model": "aifs-ens"}
     line_color, line_style = '#1e88e5', '--'
     title_prefix, title_color = "AIFS", '#0d47a1'
-    forecast_step = 360
     subtitle = "360-hour Forecast (aifs-ens)"
 
 output_png = os.path.join(path, "240.png")
-print(f"[{datetime.now()}] Processing {model_type} for {init_date} {time_str} ({forecast_step}h)...")
+print(f"[{datetime.now()}] Processing {model_type} for {init_date} {time_str}...")
 
 try:
     client = Client(**client_kwargs)
-    client.retrieve(date=init_date, time=init_time, type="tf", stream="enfo", step=forecast_step, target=target_bufr)
+    client.retrieve(date=init_date, time=init_time, type="tf", stream="enfo", step=360, target=target_bufr)
 except Exception as e:
     print(f"Data not ready or download failed for {model_type}: {e}")
     sys.exit(0)
@@ -262,14 +255,11 @@ plt.savefig(output_png, bbox_inches='tight')
 plt.close(fig)
 print(f"Successfully generated {model_type} plot asset.")
 EOF
-
-    # ==================== 3. GIT AUTOMATION ====================
     git add .
     git commit -m "Update plots"
     git push origin main
-    
     echo "========================================================="
-    echo "Cycle completed. Sleeping for 6 hours..."
+    echo "Cycle completed. Sleeping for 12 hours..."
     echo "========================================================="
-    sleep 21600
+    sleep 43200
 done
