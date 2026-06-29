@@ -7,7 +7,9 @@ echo "========================================================="
 while true; do
     echo "--- Cycle Started at $(date) ---"
 
-    # Execute Python directly inside the shell script via Here-Doc execution
+    # =========================================================
+    # 1. ECMWF PIPELINE (Dynamic: 6Z/18Z -> 144h, 0Z/12Z -> 360h)
+    # =========================================================
     python3.11 - "ECMWF" << 'EOF'
 import os
 import sys
@@ -22,24 +24,29 @@ import earthkit.data
 
 model_type = sys.argv[1]
 
-# 1. Compute closest operational runtime
+# Compute closest operational runtime
 now_utc = datetime.utcnow()
-if now_utc.hour >= 21:
+if now_utc.hour >= 20:
     init_date_dt = now_utc
     init_time = 12
-elif now_utc.hour >= 15:
+elif now_utc.hour >= 14:
     init_date_dt = now_utc
     init_time = 6
-elif now_utc.hour >= 9:
+elif now_utc.hour >= 8:
     init_date_dt = now_utc
     init_time = 0
-elif now_utc.hour >= 3:
+elif now_utc.hour >= 2:
     init_date_dt = now_utc - timedelta(days=1)
     init_time = 18
 else:
     init_date_dt = now_utc - timedelta(days=1)
     init_time = 12
 
+# ECMWF specific conditional forecast length
+if init_time in [6, 18]:
+    forecast_hours = 144
+else:
+    forecast_hours = 360
 
 init_date = init_date_dt.strftime("%Y-%m-%d")
 date_folder = init_date_dt.strftime("%Y%m%d")
@@ -49,27 +56,19 @@ path = f"/Users/eknlau/VS_code/GHMWS/ensemble-track/wp/{model_type}/{date_folder
 if not os.path.exists(path):
     os.makedirs(path)
 
-if model_type == "ECMWF":
-    target_bufr = os.path.join(path, f"ifs-{init_date}-{time_str}.bufr")
-    csv_nwp = os.path.join(path, f"ifs-{init_date}-{time_str}-NWP.csv")
-    client_kwargs = {"source": "ecmwf", "model": "ifs"}
-    line_color, line_style = '#546e7a', '-'
-    title_prefix, title_color = "ECMWF", '#1a237e'
-    subtitle = "360-hour Forecast"
-else: # AIFS
-    target_bufr = os.path.join(path, f"aifs-{init_date}-{time_str}.bufr")
-    csv_nwp = os.path.join(path, f"aifs-{init_date}-{time_str}-NWP.csv")
-    client_kwargs = {"source": "ecmwf", "model": "aifs-ens"}
-    line_color, line_style = '#1e88e5', '--'
-    title_prefix, title_color = "AIFS", '#0d47a1'
-    subtitle = "360-hour Forecast (aifs-ens)"
+target_bufr = os.path.join(path, f"ifs-{init_date}-{time_str}.bufr")
+csv_nwp = os.path.join(path, f"ifs-{init_date}-{time_str}-NWP.csv")
+client_kwargs = {"source": "ecmwf", "model": "ifs"}
+line_color, line_style = '#546e7a', '-'
+title_prefix, title_color = "ECMWF", '#1a237e'
+subtitle = f"{forecast_hours}-hour Forecast"
 
-output_png = os.path.join(path, "240.png")
-print(f"[{datetime.now()}] Processing {model_type} for {init_date} {time_str}...")
+output_png = os.path.join(path, f"{forecast_hours}.png")
+print(f"[{datetime.now()}] Processing {model_type} ({time_str}) for {forecast_hours} hours...")
 
 try:
     client = Client(**client_kwargs)
-    client.retrieve(date=init_date, time=init_time, type="tf", stream="enfo", step=360, target=target_bufr)
+    client.retrieve(date=init_date, time=init_time, type="tf", stream="enfo", step=forecast_hours, target=target_bufr)
 except Exception as e:
     print(f"Data not ready or download failed for {model_type}: {e}")
     sys.exit(0)
@@ -133,7 +132,9 @@ EOF
 
     echo "---------------------------------------------------------"
 
-    # Now rerun the embedded script passing the AIFS arguments down 
+    # =========================================================
+    # 2. AIFS PIPELINE (Static: Always 360h)
+    # =========================================================
     python3.11 - "AIFS" << 'EOF'
 import os
 import sys
@@ -148,25 +149,26 @@ import earthkit.data
 
 model_type = sys.argv[1]
 
-# 1. Compute closest operational runtime
+# Compute closest operational runtime
 now_utc = datetime.utcnow()
-if now_utc.hour >= 18:
+if now_utc.hour >= 20:
     init_date_dt = now_utc
     init_time = 12
-elif now_utc.hour >= 12:
+elif now_utc.hour >= 14:
     init_date_dt = now_utc
     init_time = 6
-elif now_utc.hour >= 6:
+elif now_utc.hour >= 8:
     init_date_dt = now_utc
     init_time = 0
-else:
+elif now_utc.hour >= 2:
     init_date_dt = now_utc - timedelta(days=1)
     init_time = 18
-
-if init_time in [6, 18]:
-    forecast_hours = 144
 else:
-    forecast_hours = 360
+    init_date_dt = now_utc - timedelta(days=1)
+    init_time = 12
+
+# AIFS always uses 360 hours regardless of init_time
+forecast_hours = 360
 
 init_date = init_date_dt.strftime("%Y-%m-%d")
 date_folder = init_date_dt.strftime("%Y%m%d")
@@ -176,27 +178,19 @@ path = f"/Users/eknlau/VS_code/GHMWS/ensemble-track/wp/{model_type}/{date_folder
 if not os.path.exists(path):
     os.makedirs(path)
 
-if model_type == "ECMWF":
-    target_bufr = os.path.join(path, f"ifs-{init_date}-{time_str}.bufr")
-    csv_nwp = os.path.join(path, f"ifs-{init_date}-{time_str}-NWP.csv")
-    client_kwargs = {"source": "ecmwf", "model": "ifs"}
-    line_color, line_style = '#546e7a', '-'
-    title_prefix, title_color = "ECMWF", '#1a237e'
-    subtitle = "360-hour Forecast"
-else: # AIFS
-    target_bufr = os.path.join(path, f"aifs-{init_date}-{time_str}.bufr")
-    csv_nwp = os.path.join(path, f"aifs-{init_date}-{time_str}-NWP.csv")
-    client_kwargs = {"source": "ecmwf", "model": "aifs-ens"}
-    line_color, line_style = '#1e88e5', '--'
-    title_prefix, title_color = "AIFS", '#0d47a1'
-    subtitle = "360-hour Forecast (aifs-ens)"
+target_bufr = os.path.join(path, f"aifs-{init_date}-{time_str}.bufr")
+csv_nwp = os.path.join(path, f"aifs-{init_date}-{time_str}-NWP.csv")
+client_kwargs = {"source": "ecmwf", "model": "aifs-ens"}
+line_color, line_style = '#1e88e5', '--'
+title_prefix, title_color = "AIFS", '#0d47a1'
+subtitle = f"{forecast_hours}-hour Forecast (aifs-ens)"
 
-output_png = os.path.join(path, "240.png")
-print(f"[{datetime.now()}] Processing {model_type} for {init_date} {time_str}...")
+output_png = os.path.join(path, f"{forecast_hours}.png")
+print(f"[{datetime.now()}] Processing {model_type} ({time_str}) for {forecast_hours} hours...")
 
 try:
     client = Client(**client_kwargs)
-    client.retrieve(date=init_date, time=init_time, type="tf", stream="enfo", step=360, target=target_bufr)
+    client.retrieve(date=init_date, time=init_time, type="tf", stream="enfo", step=forecast_hours, target=target_bufr)
 except Exception as e:
     print(f"Data not ready or download failed for {model_type}: {e}")
     sys.exit(0)
@@ -257,6 +251,7 @@ plt.savefig(output_png, bbox_inches='tight')
 plt.close(fig)
 print(f"Successfully generated {model_type} plot asset.")
 EOF
+
     git add .
     git commit -m "Update plots"
     git push origin main
