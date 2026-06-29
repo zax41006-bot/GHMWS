@@ -256,7 +256,7 @@ EOF
     git commit -m "Update plots"
     git push origin main
     echo "========================================================="
-    echo "Cycle completed. Sleeping for 12 hours..."
+    echo "Cycle completed. Sleeping for 6 hours..."
     echo "========================================================="
-    sleep 43200
+    sleep 21600
 done
