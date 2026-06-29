@@ -8,7 +8,7 @@ while true; do
     echo "--- Cycle Started at $(date) ---"
 
     # Execute Python directly inside the shell script via Here-Doc execution
-    python3 - "ECMWF" << 'EOF'
+    python3.11 - "ECMWF" << 'EOF'
 import os
 import sys
 from datetime import datetime, timedelta
