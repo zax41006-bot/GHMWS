@@ -76,7 +76,7 @@ for model_name, cfg in models.items():
             
             local_csv_path = os.path.join(run_dir, f"{model_name.lower()}-unpaired-NWP.csv")
             archive_png = os.path.join(run_dir, "240.png")            
-            latest_png = os.path.join(path_2, "latest_240.png")
+            latest_png = os.path.join(path_2, "240.png")
             
             with open(local_csv_path, 'wb') as f:
                 f.write(r.content)
