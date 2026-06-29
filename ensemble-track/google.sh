@@ -4,7 +4,7 @@ WORKSPACE="/Users/eknlau/VS_code/GHMWS/ensemble-track"
 cd "$WORKSPACE"
 
 echo "========================================================="
-echo " Starting Google Weather Lab Live CSV Ingestion Engine"
+echo " Starting Google Weather Lab Path-Optimized Engine"
 echo "========================================================="
 
 while true; do
@@ -21,21 +21,6 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 base_path = "/Users/eknlau/VS_code/GHMWS/ensemble-track/wp"
-
-# 1. CYCLICAL TIMING MATRIX (Adjusted with a 6-hour delay buffer to find completed runs)
-now_utc = datetime.utcnow() - timedelta(hours=6)
-
-if now_utc.hour >= 18: init_date_dt, init_time = now_utc, 18
-elif now_utc.hour >= 12: init_date_dt, init_time = now_utc, 12
-elif now_utc.hour >= 6: init_date_dt, init_time = now_utc, 6
-else: init_date_dt, init_time = now_utc, 0
-
-yyyy = init_date_dt.strftime("%Y")
-mm = init_date_dt.strftime("%m")
-dd = init_date_dt.strftime("%d")
-date_folder = f"{yyyy}{mm}{dd}"
-cycle_str = f"{init_time:02d}Z"
-time_stamp_str = f"{yyyy}_{mm}_{dd}T{init_time:02d}_00"
 
 models = {
     "GENC": {
@@ -55,87 +40,104 @@ cmap = mcolors.ListedColormap(['#4a148c', '#880e4f', '#b71c1c', '#e65100', '#ff8
 norm = mcolors.BoundaryNorm(bounds, cmap.N)
 
 for model_name, cfg in models.items():
-    model_base_dir = os.path.join(base_path, model_name)
-    run_dir = os.path.join(model_base_dir, date_folder, cycle_str)
-    os.makedirs(run_dir, exist_ok=True)
+    print(f"[{datetime.now()}] Initializing search engine for {model_name}...")
     
-    local_csv_path = os.path.join(run_dir, f"{model_name.lower()}-unpaired-NWP.csv")
-    archive_png = os.path.join(run_dir, "240.png")            
-    latest_png = os.path.join(model_base_dir, "latest_240.png") 
-    
-    target_url = f"https://deepmind.google.com/science/weatherlab/download/cyclones/{model_name}/ensemble/cyclogenesis/csv/{model_name}_{time_stamp_str}_cyclogenesis.csv"
-    
-    print(f"[{datetime.now()}] Requesting data for {model_name} ({cycle_str})...")
-    print(f"Target: {target_url}")
-    
-    try:
-        r = requests.get(target_url, timeout=15)
-        if r.status_code != 200:
-            print(f"--> File unavailable on DeepMind host (HTTP {r.status_code}). Skipping {model_name}.")
-            continue
+    # Try looking for the most recent cycle, fallback up to 4 cycles (24 hours) if Google hasn't posted data yet
+    success = False
+    for lookback_hours in range(0, 25, 6):
+        now_utc = datetime.utcnow() - timedelta(hours=lookback_hours)
+        
+        # Calculate standard forecast initialization window
+        if now_utc.hour >= 18: init_time = 18
+        elif now_utc.hour >= 12: init_time = 12
+        elif now_utc.hour >= 6: init_time = 6
+        else: init_time = 0
+        
+        yyyy = now_utc.strftime("%Y")
+        mm = now_utc.strftime("%m")
+        dd = now_utc.strftime("%d")
+        date_folder = f"{yyyy}{mm}{dd}"
+        cycle_str = f"{init_time:02d}Z"
+        time_stamp_str = f"{yyyy}_{mm}_{dd}T{init_time:02d}_00"
+        
+        target_url = f"https://deepmind.google.com/science/weatherlab/download/cyclones/{model_name}/ensemble/cyclogenesis/csv/{model_name}_{time_stamp_str}_cyclogenesis.csv"
+        
+        print(f"--> Checking availability for {cycle_str} ({yyyy}-{mm}-{dd})...")
+        
+        try:
+            r = requests.get(target_url, timeout=10)
+            if r.status_code != 200:
+                continue
+                
+            # Guardrail: Catch HTML error responses masquerading as CSV files
+            if r.text.lstrip().startswith("<!DOCTYPE html>") or "<html" in r.text.lower():
+                continue
+                
+            # Define output directory structures once verified valid
+            model_base_dir = os.path.join(base_path, model_name)
+            run_dir = os.path.join(model_base_dir, date_folder, cycle_str)
+            os.makedirs(run_dir, exist_ok=True)
             
-        # HTML Content protection filter
-        if r.text.lstrip().startswith("<!DOCTYPE html>") or "<html" in r.text.lower():
-            print(f"--> Google server returned an HTML error landing page instead of a CSV. Skipping {model_name}.")
-            continue
+            local_csv_path = os.path.join(run_dir, f"{model_name.lower()}-unpaired-NWP.csv")
+            archive_png = os.path.join(run_dir, "240.png")            
+            latest_png = os.path.join(model_base_dir, "latest_240.png")
+            
+            with open(local_csv_path, 'wb') as f:
+                f.write(r.content)
+                
+            df = pd.read_csv(local_csv_path)
+            if df.empty:
+                continue
+                
+            # Headers normalization wrapper
+            if 'member' in df.columns: df = df.rename(columns={'member': 'sample'})
+            if 'lead_time' in df.columns: df = df.rename(columns={'lead_time': 'fxx'})
+            if 'mslp' in df.columns: df = df.rename(columns={'mslp': 'pressure'})
+            
+            # Canvas Engine
+            fig, ax = plt.subplots(figsize=(12, 9), dpi=120, subplot_kw={'projection': ccrs.PlateCarree()})
+            ax.set_extent([100, 180, 0, 60], crs=ccrs.PlateCarree())
+            
+            ax.add_feature(cfeature.LAND, facecolor='#f5f5f5', edgecolor='#d6d6d6')
+            ax.add_feature(cfeature.COASTLINE, linewidth=0.7, edgecolor='#333333')
+            ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=0.4, edgecolor='#a0a0a0')
+            
+            gl = ax.gridlines(draw_labels=True, linestyle=':', alpha=0.4, color='#7f8c8d')
+            gl.top_labels, gl.right_labels = False, False
 
-        with open(local_csv_path, 'wb') as f:
-            f.write(r.content)
+            for _, group in df.groupby('sample'):
+                sorted_group = group.sort_values('fxx')
+                ax.plot(
+                    sorted_group['lon'], sorted_group['lat'], 
+                    color=cfg["line_color"], linestyle=cfg["line_style"], 
+                    linewidth=0.8, alpha=0.5, transform=ccrs.PlateCarree()
+                )
+                
+            ax.scatter(df['lon'], df['lat'], edgecolors=cmap(norm(df['pressure'])), facecolors='none', s=25, linewidths=1.2, transform=ccrs.PlateCarree())
             
-        df = pd.read_csv(local_csv_path)
-        if df.empty:
-            print(f"--> File for {model_name} is empty.")
+            plt.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=norm), ax=ax, pad=0.03, fraction=0.04, aspect=30).set_label('Minimum Sea Level Pressure (hPa)', weight='bold')
+            plt.title(cfg["title"], fontsize=15, fontweight='bold', pad=20)
+            plt.text(0.5, 1.01, f"Initial Run: {yyyy}-{mm}-{dd} {cycle_str} | DeepMind WeatherLab Pipeline", transform=ax.transAxes, ha='center', fontsize=11, color='#555555')
+            
+            plt.savefig(archive_png, bbox_inches='tight')
+            plt.savefig(latest_png, bbox_inches='tight')
+            plt.close(fig)
+            
+            print(f"--> [SUCCESS] Processed {cycle_str}! Saved to archive and root.")
+            success = True
+            break # Exit lookback loop, proceed to next model
+            
+        except Exception as e:
+            print(f"    Internal cycle error for {cycle_str}: {e}")
             continue
             
-        if 'member' in df.columns: df = df.rename(columns={'member': 'sample'})
-        if 'lead_time' in df.columns: df = df.rename(columns={'lead_time': 'fxx'})
-        if 'mslp' in df.columns: df = df.rename(columns={'mslp': 'pressure'})
-        
-        # 3. CANVAS GENERATION ENGINE
-        fig, ax = plt.subplots(figsize=(12, 9), dpi=120, subplot_kw={'projection': ccrs.PlateCarree()})
-        
-        # CRITICAL FIX: Explicitly pass the CRS coordinate transform to set_extent to prevent clipping
-        ax.set_extent([100, 180, 0, 60], crs=ccrs.PlateCarree())
-        
-        ax.add_feature(cfeature.LAND, facecolor='#f5f5f5', edgecolor='#d6d6d6')
-        ax.add_feature(cfeature.COASTLINE, linewidth=0.7, edgecolor='#333333')
-        ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=0.4, edgecolor='#a0a0a0')
-        
-        gl = ax.gridlines(draw_labels=True, linestyle=':', alpha=0.4, color='#7f8c8d')
-        gl.top_labels, gl.right_labels = False, False
-
-        # Group and track sequentially sorted arrays over time steps
-        for _, group in df.groupby('sample'):
-            sorted_group = group.sort_values('fxx')
-            ax.plot(
-                sorted_group['lon'], sorted_group['lat'], 
-                color=cfg["line_color"], linestyle=cfg["line_style"], 
-                linewidth=0.8, alpha=0.5, transform=ccrs.PlateCarree()
-            )
-            
-        ax.scatter(df['lon'], df['lat'], edgecolors=cmap(norm(df['pressure'])), facecolors='none', s=25, linewidths=1.2, transform=ccrs.PlateCarree())
-        
-        # Labels & Final File Compilations
-        plt.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=norm), ax=ax, pad=0.03, fraction=0.04, aspect=30).set_label('Minimum Sea Level Pressure (hPa)', weight='bold')
-        plt.title(cfg["title"], fontsize=15, fontweight='bold', pad=20)
-        plt.text(0.5, 1.01, f"Initial Run: {yyyy}-{mm}-{dd} {cycle_str} | DeepMind WeatherLab Pipeline", transform=ax.transAxes, ha='center', fontsize=11, color='#555555')
-        
-        # Save to both paths cleanly
-        plt.savefig(archive_png, bbox_inches='tight')
-        plt.savefig(latest_png, bbox_inches='tight')
-        plt.close(fig)
-        print(f"--> [SUCCESS] Archived: {archive_png}")
-        print(f"--> [SUCCESS] Latest updated: {latest_png}")
-        
-    except Exception as e:
-        print(f"--> Engine process broke during execution for {model_name}: {e}")
-        continue
+    if not success:
+        print(f"[WARN] Failed to find any valid recent cycles for {model_name} in the last 24 hours.")
 EOF
 
-    # 4. REMOTE PRODUCTION REPO SYNCHRONIZATION
-    echo "Pushing Weather Lab layers to repository remote host..."
+    echo "Pushing changes up to remote master tracking branch..."
     git add .
-    git commit -m "Automated Sync: Fixed GENC & FNV3 map rendering paths for $(date +%Y%m%d_%H%MZ)"
+    git commit -m "Automated Sync: Self-healing WeatherLab tracks fallback loop complete"
     git push origin main
     
     echo "========================================================="
