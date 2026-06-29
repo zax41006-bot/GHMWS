@@ -27,8 +27,8 @@
         @layer utilities {
             .model-card { @apply bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden; }
             .model-img { @apply w-[85%] md:w-[75%] h-auto object-contain mx-auto rounded-lg; }
-            .control-btn { @apply w-12 h-12 flex items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-all shadow-md; }
-            .select-box { @apply bg-white border border-gray-300 px-5 py-3 rounded-lg cursor-pointer flex justify-between items-center text-lg font-medium; }
+            .select-box { @apply bg-white border border-gray-300 px-5 py-3 rounded-lg cursor-pointer flex justify-between items-center text-lg font-medium w-full; }
+            .input-box { @apply bg-white border border-gray-300 px-5 py-3 rounded-lg text-lg font-medium w-full focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary; }
             .select-dropdown { @apply absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden; }
             .select-option { @apply px-5 py-3 hover:bg-primary/10 cursor-pointer transition-colors; }
         }
@@ -64,50 +64,51 @@
     <main class="container mx-auto px-4 py-6">
         <div class="text-center mb-6">
             <h2 class="text-2xl md:text-3xl font-bold text-primary mb-1">集合模式預報</h2>
-            <p class="text-primary font-medium mt-1">發佈/更新時間：28/4 22:50 (28/4 00Z run)</p>
+            <p id="updateTimeText" class="text-primary font-medium mt-1">發佈/更新時間：載入中...</p>
         </div>
 
         <div class="model-card relative">
             <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 relative">
                 <div class="relative">
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">1. 選擇模式</label>
                     <div id="modelSelectBox" class="select-box">
                         <span id="modelSelectText">ECMWF</span>
                         <i class="fa fa-caret-down text-primary"></i>
                     </div>
                     <div id="modelDropdown" class="select-dropdown hidden">
-                        <div class="select-option" data-model="ecmwf">ECMWF</div>
+                        <div class="select-option" data-model="ECMWF">ECMWF</div>
                         <div class="select-option" data-model="FNV3">FNV3</div>
                     </div>
                 </div>
 
-                <div class="relative">
-                    <div id="regionSelectBox" class="select-box">
-                        <span id="regionSelectText">西太平洋</span>
-                        <i class="fa fa-caret-down text-primary"></i>
-                    </div>
-                    <div id="regionDropdown" class="select-dropdown hidden">
-                        <div class="select-option" data-region="wp">西太平洋</div>
-                    </div>
+                <div>
+                    <label for="dateInput" class="block text-sm font-semibold text-gray-600 mb-1">2. 輸入日期 (YYYY-MM-DD)</label>
+                    <input type="text" id="dateInput" class="input-box" placeholder="例如: 2026-06-29" value="2026-06-29">
                 </div>
 
-                <div class="relative">
-                    <div id="varSelectBox" class="select-box">
-                        <span id="varSelectText">路徑系集預報</span>
-                        <i class="fa fa-caret-down text-primary"></i>
-                    </div>
-                    <div id="varDropdown" class="select-dropdown hidden">
-                    </div>
+                <div>
+                    <label for="timeInput" class="block text-sm font-semibold text-gray-600 mb-1">3. 輸入時效 (TT)</label>
+                    <input type="text" id="timeInput" class="input-box" placeholder="例如: 00 或 12" value="00" maxlength="2">
                 </div>
             </div>
 
-            <img id="modelImage" src="ensemble-track/wp/EC/240.jpg" class="model-img" alt="模式預報">
+            <div class="px-4 pb-4 text-right">
+                <button id="updateBtn" class="bg-primary text-white font-medium px-6 py-2 rounded-lg shadow-md hover:bg-primary/90 transition-all">
+                    <i class="fa fa-sync-alt mr-1"></i> 更新預報圖
+                </button>
+            </div>
+
+            <div class="py-4 border-t border-gray-100">
+                <img id="modelImage" src="" class="model-img" alt="模式預報圖 載入中或路徑不存在">
+            </div>
         </div>
 
         <div class="model-card bg-blue-50 text-gray-700 p-4 mt-4">
             <p class="font-bold mb-1 text-lg">ℹ️ 使用說明</p>
-            <p>• 三級選擇：模式 → 地區 → 路徑系集預報</p>
-            <p>• 切換地區會自動顯示該地區可用的參數</p>
-            <p>• 資料僅供參考，請以官方發布為準</p>
+            <p>• 請選擇預報模式，並輸入欲查詢的起報日期與起報時效。</p>
+            <p>• 日期格式請務必採用 <b>YYYY-MM-DD</b> (如 2026-06-29)。</p>
+            <p>• 時效格式請務必採用 <b>TT</b> 雙位數數字 (如 00 代表 00Z，12 代表 12Z)。</p>
+            <p>• 點擊「更新預報圖」按鈕或在輸入框按 Enter 即可加載對應圖片。</p>
         </div>
     </main>
 
@@ -118,112 +119,77 @@
     </footer>
 
     <script>
-        const pathConfig = {
-            ecmwf: {
-                wp: {
-                    track_ensemble:"ensemble-track/wp/EC/"
-                }
-            },
-            FNV3:{
-                wp: {
-                    track_ensemble:"ensemble-track/wp/FNV3/"
-                },
+        // App Core State
+        let currentModel = "ECMWF";
+        const currentFxx = 240; 
+
+        // DOM Elements
+        const img = document.getElementById("modelImage");
+        const updateTimeText = document.getElementById("updateTimeText");
+        const modelSelectText = document.getElementById("modelSelectText");
+        const modelDropdown = document.getElementById("modelDropdown");
+        const dateInput = document.getElementById("dateInput");
+        const timeInput = document.getElementById("timeInput");
+        const updateBtn = document.getElementById("updateBtn");
+
+        // Main Image URL Builder Function
+        function updateImageSource() {
+            // Read values directly from inputs
+            let rawDate = dateInput.value.trim(); // "2026-06-29"
+            let rawTime = timeInput.value.trim(); // "00"
+
+            // Data sanitization: Strip dashes from YYYY-MM-DD to match directory naming (e.g., 20260629)
+            let sanitizedDate = rawDate.replace(/-/g, ""); 
+            
+            // Append standard 'Z' format to raw time text if not input by the user
+            let formattedTime = rawTime.toUpperCase().endsWith("Z") ? rawTime.toUpperCase() : rawTime + "Z";
+
+            // Safety check for empty text fields
+            if (!sanitizedDate || !rawTime) {
+                alert("請完整填寫日期與時效！");
+                return;
             }
+
+            // Path outcome mapping: ensemble-track/wp/ECMWF/20260629/00Z/240.png
+            const imagePath = `ensemble-track/wp/${currentModel}/${sanitizedDate}/${formattedTime}/${currentFxx}.png`;
+            img.src = imagePath;
+
+            // Update top layout text notice
+            updateTimeText.innerText = `發佈/更新時間：${rawDate} (${formattedTime} run)`;
         }
 
-        const fxxList = [240];
-let currentFxx = 240;
-let currentModel = "ecmwf";
-let currentRegion = "wp";
-let currentVar = "track_ensemble";
-let autoPlay = null; // Initialize as null
+        // Toggle Model Dropdown Menu
+        document.getElementById("modelSelectBox").addEventListener("click", (e) => {
+            e.stopPropagation();
+            modelDropdown.classList.toggle("hidden");
+        });
 
-const img = document.getElementById("modelImage");
-const modelSelectText = document.getElementById("modelSelectText");
-const regionSelectText = document.getElementById("regionSelectText");
-const varSelectText = document.getElementById("varSelectText");
-const varDropdown = document.getElementById("varDropdown");
+        // Set values on selecting a model
+        document.querySelectorAll("#modelDropdown .select-option").forEach(option => {
+            option.addEventListener("click", () => {
+                currentModel = option.dataset.model;
+                modelSelectText.innerText = option.innerText;
+                modelDropdown.classList.add("hidden");
+                updateImageSource();
+            });
+        });
 
-function updateVarList() {
-    varDropdown.innerHTML = "";
-    const vars = pathConfig[currentModel][currentRegion];
-    
-    for (let v in vars) {
-        let div = document.createElement("div");
-        div.className = "select-option";
-        div.dataset.var = v;
-        div.innerText = v;
-        varDropdown.appendChild(div);
-    }
+        // Event listener hooks for buttons and text inputs
+        updateBtn.addEventListener("click", updateImageSource);
 
-    currentVar = Object.keys(vars)[0];
-    varSelectText.innerText = currentVar;
-    updateImage();
-}
+        // Allow updates immediately when user presses Enter inside fields
+        dateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") updateImageSource(); });
+        timeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") updateImageSource(); });
 
-function updateImage() {
-    const path = pathConfig[currentModel][currentRegion][currentVar];
-    // Ensure fxx is formatted correctly if your files use leading zeros (e.g., 00, 06)
-    img.src = path + currentFxx + ".png";
-}
+        // Close dropdown when clicking outside
+        document.addEventListener("click", (e) => {
+            if (!document.getElementById("modelSelectBox").contains(e.target)) {
+                modelDropdown.classList.add("hidden");
+            }
+        });
 
-// Dropdown Toggles
-document.getElementById("modelSelectBox").addEventListener("click", (e) => {
-    e.stopPropagation();
-    document.getElementById("modelDropdown").classList.toggle("hidden");
-});
-
-document.querySelectorAll("#modelDropdown .select-option").forEach(option => {
-    option.addEventListener("click", () => {
-        currentModel = option.dataset.model;
-        modelSelectText.innerText = option.innerText;
-        document.getElementById("modelDropdown").classList.add("hidden");
-        currentFxx = 240;
-        updateVarList();
-    });
-});
-
-document.getElementById("regionSelectBox").addEventListener("click", (e) => {
-    e.stopPropagation();
-    document.getElementById("regionDropdown").classList.toggle("hidden");
-});
-
-document.querySelectorAll("#regionDropdown .select-option").forEach(option => {
-    option.addEventListener("click", () => {
-        currentRegion = option.dataset.region;
-        regionSelectText.innerText = option.innerText;
-        document.getElementById("regionDropdown").classList.add("hidden");
-        currentFxx = 240;
-        updateVarList(); 
-    });
-});
-
-document.getElementById("varSelectBox").addEventListener("click", (e) => {
-    e.stopPropagation();
-    document.getElementById("varDropdown").classList.toggle("hidden");
-});
-
-// Variable Selection (Delegated)
-document.addEventListener("click", (e) => {
-    if (e.target && e.target.classList.contains("select-option") && e.target.dataset.var) {
-        currentVar = e.target.dataset.var;
-        varSelectText.innerText = currentVar;
-        document.getElementById("varDropdown").classList.add("hidden");
-        currentFxx = 240;
-        updateImage();
-    }
-});
-
-// 2. Fixed: Previous Logic
-
-// 4. Fixed: Added .target to contains()
-document.addEventListener("click", (e) => {
-    if (!document.getElementById("modelSelectBox").contains(e.target)) document.getElementById("modelDropdown").classList.add("hidden");
-    if (!document.getElementById("regionSelectBox").contains(e.target)) document.getElementById("regionDropdown").classList.add("hidden");
-    if (!document.getElementById("varSelectBox").contains(e.target)) document.getElementById("varDropdown").classList.add("hidden");
-});
-
-updateVarList();
+        // Fire on system initiation
+        updateImageSource();
     </script>
 </body>
 </html>
