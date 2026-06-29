@@ -16,7 +16,7 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-import matplotlib.colors asmcolors
+import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
