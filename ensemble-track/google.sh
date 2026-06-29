@@ -26,7 +26,6 @@ import cartopy.feature as cfeature
 
 base_path = "/Users/eknlau/VS_code/GHMWS/ensemble-track/wp"
 
-# Match your specific configuration architecture mapping requirements
 models = {
     "GENC": {
         "title": "GENC Ensemble Tracks - GHMWS"
@@ -71,7 +70,6 @@ for model_name, cfg in models.items():
             if r.text.lstrip().startswith("<!DOCTYPE html>") or "<html" in r.text.lower():
                 continue
                 
-            # Align exact path parameters with your configuration string mapping setup
             path_2 = f"/Users/eknlau/VS_code/GHMWS/ensemble-track/wp/{model_name}/"
             run_dir = os.path.join(path_2, date_folder, cycle_str)
             os.makedirs(run_dir, exist_ok=True)
@@ -83,24 +81,22 @@ for model_name, cfg in models.items():
             with open(local_csv_path, 'wb') as f:
                 f.write(r.content)
                 
-            # Read downloaded dataset natively into your designated structural dataframe container
-            df_2 = pd.read_csv(local_csv_path)
+            # FIX 1: Add comment='#' to bypass Google's legal notice header lines
+            df_2 = pd.read_csv(local_csv_path, comment='#')
             if df_2.empty:
                 continue
                 
-            # Clean/Standardize dataset headers across variants
-            if 'member' in df_2.columns: df_2 = df_2.rename(columns={'member': 'sample'})
-            if 'lead_time' in df_2.columns: df_2 = df_2.rename(columns={'lead_time': 'fxx'})
-            if 'mslp' in df_2.columns: df_2 = df_2.rename(columns={'mslp': 'pressure'})
-            if 'track' not in df_2.columns: df_2['track'] = f"Invest_{model_name}"
+            # FIX 2: Explicit map matching to your true file header keys
+            if 'minimum_sea_level_pressure_hpa' in df_2.columns:
+                df_2 = df_2.rename(columns={'minimum_sea_level_pressure_hpa': 'pressure'})
             
-            # Sort arrays explicitly to keep timeline track vectors fluid and non-jagged
-            df_2 = df_2.sort_values(by=['track', 'sample', 'fxx'])
+            # Use 'valid_time' for perfect chronological track line connection sorting
+            df_2 = df_2.sort_values(by=['track_id', 'sample', 'valid_time'])
             
             base_time_str = f"{yyyy}-{mm}-{dd} {cycle_str}"
 
             # -------------------------------------------------------------
-            # YOUR CUSTOM CANVAS GENERATION ENGINE LAYOUT
+            # INTEGRATED VISUALIZATION CANVAS
             # -------------------------------------------------------------
             fig = plt.figure(figsize=(12, 9), dpi=100)
             ax_2 = plt.axes(projection=ccrs.PlateCarree())
@@ -114,14 +110,13 @@ for model_name, cfg in models.items():
             gl.top_labels = False
             gl.right_labels = False
 
-            # Trace ensemble threads via your track group conditions
-            for _, group in df_2.groupby(['track', 'sample']):
+            # FIX 3: Group by track_id and sample matching the precise columns
+            for _, group in df_2.groupby(['track_id', 'sample']):
                 ax_2.plot(
                     group['lon'], group['lat'], color='gray', linewidth=0.6, alpha=0.2, 
                     transform=ccrs.PlateCarree(), zorder=3
                 )
 
-            # Intensity layout plots using df_2 context
             sc = ax_2.scatter(
                 df_2['lon'], df_2['lat'], 
                 edgecolors=cmap(norm(df_2['pressure'])), 
@@ -141,9 +136,8 @@ for model_name, cfg in models.items():
             plt.text(0.5, 1.05, "360-hour Forecast", transform=ax_2.transAxes, ha='center', fontsize=13, fontweight='bold', color='#333333')
             plt.text(0.5, 1.02, f"Initial Time: {base_time_str}", transform=ax_2.transAxes, ha='center', fontsize=11, color='#546e7a')
             
-            # Save to both target output destinations cleanly
-            plt.savefig(archive_png, bbox_inches='tight') # Path 1: Cyclical Archive Log
-            plt.savefig(latest_png, bbox_inches='tight')  # Path 2: Production Base Target Root
+            plt.savefig(archive_png, bbox_inches='tight') 
+            plt.savefig(latest_png, bbox_inches='tight')  
             plt.close(fig)
             
             print(f"--> [SUCCESS] Processed {cycle_str}! Visual maps written safely.")
@@ -160,7 +154,7 @@ EOF
 
     echo "Pushing updates to production repository main branch..."
     git add .
-    git commit -m "Automated Sync: Core track layout engine synchronized for GENC & FNV3"
+    git commit -m "Automated Sync: Core track headers aligned to true WeatherLab output specs"
     git push origin main
     
     echo "========================================================="
