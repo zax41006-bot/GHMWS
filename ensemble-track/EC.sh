@@ -258,7 +258,31 @@ EOF
     git commit -m "Update plots"
     git push origin main
     echo "========================================================="
-    echo "Cycle completed. Sleeping for 6 hours..."
+    
+    # =========================================================
+    # DYNAMIC SLEEP CALCULATION (Snaps to 02, 08, 14, 20 UTC)
+    # =========================================================
+    CURRENT_HOUR=$(date -u +%-H)
+    CURRENT_MIN=$(date -u +%-M)
+    CURRENT_SEC=$(date -u +%-S)
+
+    # Find the next target hour
+    if [ $CURRENT_HOUR -lt 2 ]; then NEXT_TARGET=2
+    elif [ $CURRENT_HOUR -lt 8 ]; then NEXT_TARGET=8
+    elif [ $CURRENT_HOUR -lt 14 ]; then NEXT_TARGET=14
+    elif [ $CURRENT_HOUR -lt 20 ]; then NEXT_TARGET=20
+    else NEXT_TARGET=26 # 26 hours means 02:00Z tomorrow
+    fi
+
+    HOURS_TO_WAIT=$((NEXT_TARGET - CURRENT_HOUR - 1))
+    MINS_TO_WAIT=$((59 - CURRENT_MIN))
+    SECS_TO_WAIT=$((60 - CURRENT_SEC))
+
+    TOTAL_SLEEP=$(( (HOURS_TO_WAIT * 3600) + (MINS_TO_WAIT * 60) + SECS_TO_WAIT ))
+
+    echo "Cycle completed. Snapping to next target interval ($((NEXT_TARGET % 24)):00Z)."
+    echo "Sleeping for $TOTAL_SLEEP seconds..."
     echo "========================================================="
-    sleep 21600
+    
+    sleep $TOTAL_SLEEP
 done
