@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+import matplotlib.colors mcolors
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
@@ -169,7 +169,31 @@ EOF
     git push origin main
     
     echo "========================================================="
-    echo "Cycle execution complete. Sleeping for 6 hours..."
+    
+    # =========================================================
+    # DYNAMIC SLEEP CALCULATION (Snaps to 02, 08, 14, 20 UTC)
+    # =========================================================
+    CURRENT_HOUR=$(date -u +%-H)
+    CURRENT_MIN=$(date -u +%-M)
+    CURRENT_SEC=$(date -u +%-S)
+
+    # Determine the next sequential target interval
+    if [ $CURRENT_HOUR -lt 2 ]; then NEXT_TARGET=2
+    elif [ $CURRENT_HOUR -lt 8 ]; then NEXT_TARGET=8
+    elif [ $CURRENT_HOUR -lt 14 ]; then NEXT_TARGET=14
+    elif [ $CURRENT_HOUR -lt 20 ]; then NEXT_TARGET=20
+    else NEXT_TARGET=26 # 26 represents 02:00Z the next calendar day
+    fi
+
+    HOURS_TO_WAIT=$((NEXT_TARGET - CURRENT_HOUR - 1))
+    MINS_TO_WAIT=$((59 - CURRENT_MIN))
+    SECS_TO_WAIT=$((60 - CURRENT_SEC))
+
+    TOTAL_SLEEP=$(( (HOURS_TO_WAIT * 3600) + (MINS_TO_WAIT * 60) + SECS_TO_WAIT ))
+
+    echo "Cycle execution complete. Snapping to next target interval ($((NEXT_TARGET % 24)):00Z)."
+    echo "Sleeping for $TOTAL_SLEEP seconds..."
     echo "========================================================="
-    sleep 21600
+    
+    sleep $TOTAL_SLEEP
 done
