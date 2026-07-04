@@ -23,16 +23,42 @@
         }
     </script>
      
-    <style type="text/tailwindcss">
-        @layer utilities {
-            .model-card { @apply bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden; }
-            .model-img { @apply w-[85%] md:w-[75%] h-auto object-contain mx-auto rounded-lg; }
-            .select-box { @apply bg-white border border-gray-300 px-5 py-3 rounded-lg cursor-pointer flex justify-between items-center text-lg font-medium w-full; }
-            .input-box { @apply bg-white border border-gray-300 px-5 py-3 rounded-lg text-lg font-medium w-full focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary; }
-            .select-dropdown { @apply absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden; }
-            .select-option { @apply px-5 py-3 hover:bg-primary/10 cursor-pointer transition-colors; }
+    <style type="text/tailwindcss"> 
+        @layer utilities { 
+            .weather-card { @apply bg-white rounded-lg shadow-sm border border-gray-200; } 
+            .nav-link { @apply px-4 py-3 text-white hover:bg-primary/80 transition-colors duration-300; }
+            .weather-section { @apply mb-6; }
+        } 
+        
+        body { 
+            background-color: #f8f9fa; 
+            font-family: "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; 
+        } 
+
+        .pdf-wrapper {
+            width: 100%;
+            overflow-x: hidden;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-    </style>
+        
+        #pdf-canvas {
+            display: block;
+            max-width: 100%;
+            height: auto !important;
+        }
+
+        .weather-draft-btn {
+            @apply px-4 py-2 bg-nav text-white rounded hover:bg-primary transition-colors duration-300;
+        }
+
+        @media (max-width: 768px) {
+            .nav-container ul { flex-direction: column; }
+            .nav-link { display: block; }
+        }
+    </style> 
 </head> 
 
 <body class="bg-gray-50 font-sans">
@@ -48,15 +74,18 @@
         </div>
     </header>
 
-    <nav class="bg-nav">
+    <nav class="bg-nav nav-container">
         <div class="container mx-auto px-4">
             <ul class="flex flex-wrap">
-                <li><a href="index.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">首頁</a></li>
-                <li><a href="TC.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">熱帶氣旋資訊</a></li>
-                <li><a href="model.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">全球模式預報</a></li>
-                <li><a href="meso-model.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">中尺度模式預報</a></li>
-                <li><a href="ensemble.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">集合模式預報</a></li>
-                <li><a href="animation.html" class="px-4 py-3 text-white hover:bg-primary/80 block font-medium">風場動畫</a></li>
+                <li><a href="https://zax41006-bot.github.io/GHMWS/index.html" class="nav-link inline-block font-medium">首頁</a></li>
+                <li><a href="https://zax41006-bot.github.io/GHMWS-TC-GIS/" class="nav-link inline-block font-medium">熱帶氣旋資訊</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-realtime/index.html" class="nav-link inline-block font-medium">實況天氣</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-global-model/index.html" class="nav-link inline-block font-medium">全球模式預報</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-meso-model/index.html" class="nav-link inline-block font-medium">中尺度模式預報</a></li>
+                <li><a href="https://zax41006-bot.github.io/GHMWS/ensemble.html" class="nav-link inline-block font-medium">集合模式預報</a></li>
+                <li><a href="https://lc2nz3kv-5500.asse.devtunnels.ms/demo/?skip_tunnel_warning=true/" class="nav-link inline-block font-medium">地球風場動畫3D</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-nowcast/index.html" class="nav-link inline-block font-medium">臨近降雨預報</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-convective/index.html" class="nav-link inline-block font-medium">強對流臨近預報</a></li>
             </ul>
         </div>
     </nav>
