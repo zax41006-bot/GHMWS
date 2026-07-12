@@ -101,6 +101,10 @@ for model_name, cfg in models.items():
             if 'minimum_sea_level_pressure_hpa' in df_2.columns:
                 df_2 = df_2.rename(columns={'minimum_sea_level_pressure_hpa': 'pressure'})
             
+            # --- ADJUST NEGATIVE LONGITUDE HERE ---
+            if 'lon' in df_2.columns:
+                df_2.loc[df_2['lon'] < 0, 'lon'] += 360
+            
             # Use 'valid_time' for perfect chronological track line connection sorting
             df_2 = df_2.sort_values(by=['track_id', 'sample', 'valid_time'])
             
