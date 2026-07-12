@@ -89,6 +89,9 @@ df['valid_dt'] = pd.to_datetime(df[['year', 'month', 'day', 'hour']])
 df['pressure'] = df['pressureReducedToMeanSeaLevel'] / 100.0
 df = df.rename(columns={"stormIdentifier": "track", "ensembleMemberNumber": "sample", "longitude": "lon", "latitude": "lat"})
 
+# --- ADJUST NEGATIVE LONGITUDE HERE ---
+df.loc[df['lon'] < 0, 'lon'] += 360
+
 df_nwp = df[df['track'].astype(str).str.endswith('W', na=False)].copy()
 df_nwp.to_csv(csv_nwp, index=False, encoding='utf-8-sig')
 
@@ -211,6 +214,9 @@ df['base_dt'] = pd.to_datetime((b_date + b_time).str[:12], format='%Y%m%d%H%M')
 df['valid_dt'] = pd.to_datetime(df[['year', 'month', 'day', 'hour']])
 df['pressure'] = df['pressureReducedToMeanSeaLevel'] / 100.0
 df = df.rename(columns={"stormIdentifier": "track", "ensembleMemberNumber": "sample", "longitude": "lon", "latitude": "lat"})
+
+# --- ADJUST NEGATIVE LONGITUDE HERE ---
+df.loc[df['lon'] < 0, 'lon'] += 360
 
 df_nwp = df[df['track'].astype(str).str.endswith('W', na=False)].copy()
 df_nwp.to_csv(csv_nwp, index=False, encoding='utf-8-sig')
