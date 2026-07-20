@@ -179,11 +179,11 @@ EOF
     CURRENT_SEC=$(date -u +%-S)
 
     # Determine the next sequential target interval
-    if [ $CURRENT_HOUR -lt 2 ]; then NEXT_TARGET=2
-    elif [ $CURRENT_HOUR -lt 8 ]; then NEXT_TARGET=8
-    elif [ $CURRENT_HOUR -lt 14 ]; then NEXT_TARGET=14
-    elif [ $CURRENT_HOUR -lt 20 ]; then NEXT_TARGET=20
-    else NEXT_TARGET=26 # 26 represents 02:00Z the next calendar day
+    if [ $CURRENT_HOUR -lt 1 ]; then NEXT_TARGET=1
+    elif [ $CURRENT_HOUR -lt 7 ]; then NEXT_TARGET=7
+    elif [ $CURRENT_HOUR -lt 13 ]; then NEXT_TARGET=13
+    elif [ $CURRENT_HOUR -lt 19 ]; then NEXT_TARGET=19
+    else NEXT_TARGET=25 # 26 represents 02:00Z the next calendar day
     fi
 
     HOURS_TO_WAIT=$((NEXT_TARGET - CURRENT_HOUR - 1))
