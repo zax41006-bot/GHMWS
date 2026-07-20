@@ -58,9 +58,6 @@ for model_name, cfg in models.items():
         elif now_utc.hour >= 1:
             init_date_dt = now_utc - timedelta(days=1)
             init_time = 18
-        else:
-            init_date_dt = now_utc - timedelta(days=1)
-            init_time = 12
         
         yyyy = now_utc.strftime("%Y")
         mm = now_utc.strftime("%m")
