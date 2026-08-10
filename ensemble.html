@@ -28,31 +28,18 @@
             .weather-card { @apply bg-white rounded-lg shadow-sm border border-gray-200; } 
             .nav-link { @apply px-4 py-3 text-white hover:bg-primary/80 transition-colors duration-300; }
             .weather-section { @apply mb-6; }
+            .select-box { @apply border border-gray-300 rounded-lg p-2 flex justify-between items-center cursor-pointer bg-white; }
+            .select-dropdown { @apply absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10; }
+            .select-option { @apply p-2 hover:bg-gray-100 cursor-pointer; }
+            .input-box { @apply w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:border-primary; }
+            .model-card { @apply bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden; }
+            .model-img { @apply mx-auto max-w-full h-auto block; }
         } 
         
         body { 
             background-color: #f8f9fa; 
             font-family: "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; 
         } 
-
-        .pdf-wrapper {
-            width: 100%;
-            overflow-x: hidden;
-            background: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        
-        #pdf-canvas {
-            display: block;
-            max-width: 100%;
-            height: auto !important;
-        }
-
-        .weather-draft-btn {
-            @apply px-4 py-2 bg-nav text-white rounded hover:bg-primary transition-colors duration-300;
-        }
 
         @media (max-width: 768px) {
             .nav-container ul { flex-direction: column; }
@@ -113,12 +100,12 @@
 
                 <div>
                     <label for="dateInput" class="block text-sm font-semibold text-gray-600 mb-1">2. 輸入日期 (YYYY-MM-DD)</label>
-                    <input type="text" id="dateInput" class="input-box" placeholder="例如: 2026-06-29" value="2026-06-29">
+                    <input type="text" id="dateInput" class="input-box" placeholder="例如: 2026-06-29">
                 </div>
 
                 <div>
                     <label for="timeInput" class="block text-sm font-semibold text-gray-600 mb-1">3. 輸入時效 (TT)</label>
-                    <input type="text" id="timeInput" class="input-box" placeholder="例如: 00 或 12" value="00" maxlength="2">
+                    <input type="text" id="timeInput" class="input-box" placeholder="例如: 00 或 12" maxlength="2">
                 </div>
             </div>
 
@@ -136,7 +123,7 @@
         <div class="model-card bg-blue-50 text-gray-700 p-4 mt-4">
             <p class="font-bold mb-1 text-lg">ℹ️ 使用說明</p>
             <p>• 請選擇預報模式，並輸入欲查詢的起報日期與起報時效。</p>
-            <p>• 日期格式請務必採用 <b>YYYY-MM-DD</b> (如 2026-06-29)。</p>
+            <p>• 日期格式請務必採用 <b>YYYY-MM-DD</b>。</p>
             <p>• 時效格式請務必採用 <b>TT</b> 雙位數數字 (如 00 代表 00Z，12 代表 12Z)。</p>
             <p>• 點擊「更新預報圖」按鈕或在輸入框按 Enter 即可加載對應圖片。</p>
         </div>
@@ -162,29 +149,50 @@
         const timeInput = document.getElementById("timeInput");
         const updateBtn = document.getElementById("updateBtn");
 
+        /**
+         * Calculates the latest available model date and run time based on current UTC time.
+         */
+        function setLatestDateAndTime() {
+            const now = new Date();
+            const utcHour = now.getUTCHours();
+            
+            let runTime = "00";
+            
+            // Model outputs usually lag behind standard run hours by 5-6 hours
+            if (utcHour >= 18) {
+                runTime = "12";
+            } else if (utcHour >= 6) {
+                runTime = "00";
+            } else {
+                // Before 06:00 UTC, the latest available run is yesterday's 12Z run
+                runTime = "12";
+                now.setUTCDate(now.getUTCDate() - 1);
+            }
+
+            const year = now.getUTCFullYear();
+            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(now.getUTCDate()).padStart(2, '0');
+
+            dateInput.value = `${year}-${month}-${day}`;
+            timeInput.value = runTime;
+        }
+
         // Main Image URL Builder Function
         function updateImageSource() {
-            // Read values directly from inputs
-            let rawDate = dateInput.value.trim(); // "2026-06-29"
-            let rawTime = timeInput.value.trim(); // "00"
+            let rawDate = dateInput.value.trim();
+            let rawTime = timeInput.value.trim();
 
-            // Data sanitization: Strip dashes from YYYY-MM-DD to match directory naming (e.g., 20260629)
             let sanitizedDate = rawDate.replace(/-/g, ""); 
-            
-            // Append standard 'Z' format to raw time text if not input by the user
             let formattedTime = rawTime.toUpperCase().endsWith("Z") ? rawTime.toUpperCase() : rawTime + "Z";
 
-            // Safety check for empty text fields
             if (!sanitizedDate || !rawTime) {
                 alert("請完整填寫日期與時效！");
                 return;
             }
 
-            // Path outcome mapping: ensemble-track/wp/ECMWF/20260629/00Z/240.png
             const imagePath = `ensemble-track/wp/${currentModel}/${sanitizedDate}/${formattedTime}/${currentFxx}.png`;
             img.src = imagePath;
 
-            // Update top layout text notice
             updateTimeText.innerText = `發佈/更新時間：${rawDate} (${formattedTime} run)`;
         }
 
@@ -207,18 +215,17 @@
         // Event listener hooks for buttons and text inputs
         updateBtn.addEventListener("click", updateImageSource);
 
-        // Allow updates immediately when user presses Enter inside fields
         dateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") updateImageSource(); });
         timeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") updateImageSource(); });
 
-        // Close dropdown when clicking outside
         document.addEventListener("click", (e) => {
             if (!document.getElementById("modelSelectBox").contains(e.target)) {
                 modelDropdown.classList.add("hidden");
             }
         });
 
-        // Fire on system initiation
+        // Fire on system initiation: set latest date/time, then update image
+        setLatestDateAndTime();
         updateImageSource();
     </script>
 </body>
